@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f8fafc;
+  /* 禁用移动端下拉刷新和默认手势，保证滑动组件的丝滑体验 */
+  overscroll-behavior-y: none;
+  -webkit-touch-callout: none;
+  /* 阻止页面缩放弹性问题 */
+  touch-action: pan-y;
+}
+
+/* 隐藏滚动条但保留功能 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
