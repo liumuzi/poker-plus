@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, ChevronRight } from 'lucide-react';
 
@@ -20,6 +20,33 @@ const getPositions = (count) => {
 };
 
 export default function App() {
+  const scrollRef = useRef(null);
+  const isDragging = useRef(false);
+  const startPos = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  const handleMouseDown = (e) => {
+    isDragging.current = true;
+    startPos.current = {
+      x: e.pageX,
+      y: e.pageY,
+      scrollLeft: scrollRef.current?.scrollLeft || 0,
+      scrollTop: scrollRef.current?.scrollTop || 0
+    };
+  };
+
+  const handleMouseLeave = () => { isDragging.current = false; };
+  const handleMouseUp = () => { isDragging.current = false; };
+  const handleMouseMove = (e) => {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX;
+    const y = e.pageY;
+    const walkX = x - startPos.current.x;
+    const walkY = y - startPos.current.y;
+    scrollRef.current.scrollLeft = startPos.current.scrollLeft - walkX;
+    scrollRef.current.scrollTop = startPos.current.scrollTop - walkY;
+  };
+
   const [stage, setStage] = useState('home');
   const [playerCount, setPlayerCount] = useState(6);
   const [sbAmount, setSbAmount] = useState(1);
@@ -110,7 +137,11 @@ export default function App() {
     setHighestBet(bbAmount);
     setBettingRound(0);
     setCommunityCards([]);
-    setHistory([]);
+    setHistory([
+      { player: initialPlayers[sbIdx].name, action: `小盲 $${sbAmount}`, pot: sbAmount, isHero: initialPlayers[sbIdx].isHero },
+      { player: initialPlayers[bbIdx].name, action: `大盲 $${bbAmount}`, pot: sbAmount + bbAmount, isHero: initialPlayers[bbIdx].isHero },
+      { isDivider: true, text: '--- 进入 翻前 (Pre-flop) ---', cards: [] }
+    ]);
     setHistorySnapshots([]);
     setWinners([]);
     setCurrentTurn(0); // UTG acts first pre-flop
@@ -177,7 +208,7 @@ export default function App() {
         newPot += toMatch;
         historyLog = `Call ${toMatch}`;
       }
-    } else if (actionStr === 'Raise' || actionStr === 'All-in') {
+    } else if (actionStr === 'Raise') {
       let amt = parseFloat(amount);
       if (isNaN(amt) || amt <= highestBet) {
           alert('加注后的总额必须大于当前最高下注！'); return;
@@ -187,8 +218,7 @@ export default function App() {
       curr.totalInvested += added;
       newPot += added;
       newHighest = amt;
-      historyLog = `${actionStr} to ${amt}`;
-      if (actionStr === 'All-in') curr.allIn = true;
+      historyLog = `Raise to ${amt}`;
       
       // 被加注后，后面未弃牌未All-in的人都要重新表态
       p.forEach(player => {
@@ -196,12 +226,32 @@ export default function App() {
              player.actedThisRound = false;
          }
       });
+    } else if (actionStr === 'All-in') {
+      let amt = parseFloat(amount);
+      if (isNaN(amt) || amt <= 0) return;
+      
+      let added = Math.max(0, amt - curr.betThisRound);
+      curr.betThisRound = amt;
+      curr.totalInvested += added;
+      newPot += added;
+      curr.allIn = true;
+      historyLog = `All-in ${amt}`;
+
+      if (amt > highestBet) {
+         newHighest = amt;
+         // 如果 All-in 的金额大于最高下注，算作加注，需要后面的人重新表态
+         p.forEach(player => {
+            if (player.id !== curr.id && !player.folded && !player.allIn) {
+                player.actedThisRound = false;
+            }
+         });
+      }
     }
 
     setPotSize(newPot);
     setHighestBet(newHighest);
     setPlayers(p);
-    setHistory(h => [...h, { player: curr.name, action: historyLog, round: ROUND_NAMES[bettingRound], pot: newPot }]);
+    setHistory(h => [...h, { player: curr.name, isHero: curr.isHero, action: historyLog, round: ROUND_NAMES[bettingRound], pot: newPot }]);
     checkRoundEnd(p, newHighest);
   };
 
@@ -255,7 +305,25 @@ export default function App() {
     setPickingCardsFor(null);
     setTempCards([]);
 
-    // 翻后由 SB（小盲位，即 playerCount - 2）开始找第一个存活玩家
+    let activeCount = p.filter(pl => !pl.folded && !pl.allIn).length;
+    let standingCount = p.filter(pl => !pl.folded).length;
+
+    // 当仅有1人存活（未弃牌）时，确实不需要发后续公共牌，直接结算
+    if (standingCount <= 1 || nextRound >= 4) {
+      setStage('resolution');
+      return;
+    }
+
+    // Bug 修复：如果场上虽然有多人存活，但已经没有人能继续行动（全都 All-in了）
+    // 不能去 findNextActor，否则会导致找不到人而强行跳过后面的发牌进入结局！
+    if (activeCount === 0) {
+      if (nextRound === 1) setPickingCardsFor('turn');
+      else if (nextRound === 2) setPickingCardsFor('river');
+      else if (nextRound >= 3) setStage('resolution');
+      return;
+    }
+
+    // 翻后由 SB（小盲位，即 playerCount - 2）开始找第一个存活且可行动的玩家
     findNextActor(playerCount - 3, p); 
   };
 
@@ -330,13 +398,65 @@ export default function App() {
   };
 
   // ---------------- UI 渲染 ----------------
-  const renderHome = () => (
+  const renderHome = () => {
+    const loadTestCase = () => {
+      setPotSize(72);
+      setSbAmount(1);
+      setBbAmount(2);
+      setPlayers([
+        { id: 1, name: 'imafish', isHero: false, knownCards: [null, null] },
+        { id: 2, name: 'Nikola..', isHero: false, knownCards: [null, null] },
+        { id: 3, name: 'rd8121', isHero: false, knownCards: [null, null] },
+        { id: 4, name: 'Godz1lla', isHero: false, knownCards: [null, null] },
+        { id: 5, name: 'moq66', isHero: false, knownCards: [null, null] },
+        { id: 6, name: 'Lucife..', isHero: true, knownCards: [{rank:'J', suit:'s'}, {rank:'T', suit:'s'}] },
+      ]);
+      setCommunityCards([{rank:'9',suit:'d'}, {rank:'5',suit:'c'}, {rank:'7',suit:'s'}, {rank:'8',suit:'h'}, {rank:'K',suit:'h'}]);
+      setHistory([
+         { player: 'Lucife..', action: '小盲 $1', pot: 1, isHero: true },
+         { player: 'moq66', action: '大盲 $2', pot: 3, isHero: false },
+         { isDivider: true, text: '--- 进入 翻前 ---', cards: [] },
+         { player: 'imafish', action: 'Fold', pot: 3, isHero: false },
+         { player: 'Nikola..', action: 'Fold', pot: 3, isHero: false },
+         { player: 'rd8121', action: 'Call 2', pot: 5, isHero: false },
+         { player: 'Godz1lla', action: 'Fold', pot: 5, isHero: false },
+         { player: 'Lucife..', action: 'Raise to 8', pot: 12, isHero: true },
+         { player: 'moq66', action: 'Fold', pot: 12, isHero: false },
+         { player: 'rd8121', action: 'Call 6', pot: 18, isHero: false }, 
+         { isDivider: true, text: '--- 进入 Flop ---', cards: [{rank:'9',suit:'d'}, {rank:'5',suit:'c'}, {rank:'7',suit:'s'}] },
+         { player: 'Lucife..', action: 'Check', pot: 18, isHero: true },
+         { player: 'rd8121', action: 'Raise to 9', pot: 27, isHero: false },
+         { player: 'Lucife..', action: 'Raise to 27', pot: 45, isHero: true },
+         { player: 'rd8121', action: 'Call 18', pot: 72, isHero: false }, 
+         { isDivider: true, text: '--- 进入 Turn ---', cards: [{rank:'8',suit:'h'}] },
+         { player: 'Lucife..', action: 'Raise to 36', pot: 108, isHero: true },
+         { player: 'rd8121', action: 'Fold', pot: 108, isHero: false },
+         { isDivider: true, text: '--- 结算 ---', cards: [] },
+         { player: '👑', action: 'Lucife.. 获胜 $72', isWinLog: true }
+      ]);
+      setIsViewingSave(true);
+      setStage('summary');
+    };
+
+    return (
     <div className="flex flex-col items-center min-h-screen p-6 bg-slate-900 text-white select-none">
       <div className="flex-1 flex flex-col items-center justify-center w-full mt-10">
         <h1 className="text-5xl font-extrabold mb-2 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">Poker+</h1>
         <p className="text-slate-400 mb-12 tracking-widest text-sm text-center">专业错题本 • 真德扑状态机复盘</p>
-        <button onClick={() => setStage('setup')} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-blue-500/50 active:scale-95 transition-transform mb-12">
+        <button onClick={() => {
+            setHeroCards([null, null]);
+            setPlayers([]);
+            setCommunityCards([]);
+            setTempCards([]);
+            setHistory([]);
+            setHistorySnapshots([]);
+            setWinners([]);
+            setStage('setup');
+        }} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-blue-500/50 active:scale-95 transition-transform mb-4">
           <Play size={20} className="fill-current" /><span>新建复盘牌局</span>
+        </button>
+        <button onClick={loadTestCase} className="text-xs text-slate-400 underline underline-offset-4 hover:text-slate-300">
+          加载测试用例 (还原截图样式)
         </button>
       </div>
 
@@ -373,6 +493,7 @@ export default function App() {
       </div>
     </div>
   );
+  };
 
   const renderSetup = () => (
     <div className="flex flex-col p-5 min-h-screen bg-slate-100 select-none">
@@ -430,14 +551,33 @@ export default function App() {
   );
 
   const SwipeCard = ({ player }) => {
+    const [showRaiseDrawer, setShowRaiseDrawer] = useState(false);
+
     const onDragEnd = (_, { offset }) => {
-      if (offset.x < -60) handleAction('Check/Call');
-      else if (offset.x > 60) handleAction('Fold');
+      if (offset.x < -60) handleAction('Fold');
+      else if (offset.x > 60) handleAction('Check/Call');
     };
-    const onRaise = () => {
+
+    const handleCustomRaise = () => {
       const amt = prompt(`当前单次最高下注额为 ${highestBet}。\n在此基础上，你要加注到多少？(To)`);
       if (amt) handleAction('Raise', amt);
+      setShowRaiseDrawer(false);
     };
+
+    const handleRaiseClick = (amt) => {
+      handleAction('Raise', amt);
+      setShowRaiseDrawer(false);
+    };
+
+    const handleAllIn = () => {
+      const amt = prompt(`请输入玩家 All-in 的总下注额 (当前面临最高下注是 ${highestBet}):`);
+      if (amt) handleAction('All-in', amt);
+      setShowRaiseDrawer(false);
+    };
+
+    const baseBet = highestBet > 0 ? highestBet : bbAmount;
+    const callAmount = highestBet > player.betThisRound ? highestBet - player.betThisRound : 0;
+    const potRaise = highestBet + (potSize + callAmount);
 
     return (
       <div className="flex flex-col items-center w-full h-[320px] justify-center relative mt-4">
@@ -446,6 +586,23 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: -30 }} transition={{ type: 'spring', stiffness: 350, damping: 25 }}
             className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-[0_15px_50px_rgb(0,0,0,0.15)] border border-slate-100 p-8 flex flex-col items-center absolute z-20"
           >
+            {showRaiseDrawer && (
+              <div className="absolute inset-0 bg-white z-30 rounded-[2.5rem] flex flex-col p-6 overflow-hidden">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="font-extrabold text-slate-800 text-lg">选择加注量</h4>
+                  <button onClick={() => setShowRaiseDrawer(false)} className="text-slate-400 font-bold text-sm bg-slate-100 px-3 py-1 rounded-full">返回</button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 flex-1 content-start">
+                  <button onClick={() => handleRaiseClick(baseBet * 2)} className="bg-slate-50 border-2 border-slate-200 text-slate-700 font-black py-4 rounded-2xl active:bg-slate-100 shadow-sm transition-transform active:scale-95">2x ({baseBet * 2})</button>
+                  <button onClick={() => handleRaiseClick(baseBet * 2.5)} className="bg-slate-50 border-2 border-slate-200 text-slate-700 font-black py-4 rounded-2xl active:bg-slate-100 shadow-sm transition-transform active:scale-95">2.5x ({baseBet * 2.5})</button>
+                  <button onClick={() => handleRaiseClick(baseBet * 3)} className="bg-slate-50 border-2 border-slate-200 text-slate-700 font-black py-4 rounded-2xl active:bg-slate-100 shadow-sm transition-transform active:scale-95">3x ({baseBet * 3})</button>
+                  <button onClick={() => handleRaiseClick(potRaise)} className="bg-blue-50 border-2 border-blue-200 text-blue-700 font-black py-4 rounded-2xl active:bg-blue-100 shadow-sm transition-transform active:scale-95">满Pot ({potRaise})</button>
+                  <button onClick={handleAllIn} className="bg-red-50 text-red-600 border-2 border-red-200 font-black py-4 rounded-2xl active:bg-red-100 shadow-sm transition-transform active:scale-95">All-in (全下)</button>
+                  <button onClick={handleCustomRaise} className="bg-slate-800 text-white font-bold py-4 rounded-2xl active:bg-slate-700 shadow-md transition-transform active:scale-95">自定义</button>
+                </div>
+              </div>
+            )}
+
             <div className={`px-4 py-1.5 rounded-full mb-5 font-black text-xs tracking-wider shadow-sm border-2 ${player.isHero ? 'bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 border-amber-400' : 'bg-slate-100 text-slate-500 border-transparent'}`}>
               {player.isHero ? '👑 我 (Hero) 的行动回合' : '其他玩家行动中'}
             </div>
@@ -467,7 +624,7 @@ export default function App() {
               <button onClick={() => handleAction('Check/Call')} className="bg-emerald-50 text-emerald-600 font-bold py-3.5 rounded-xl text-xs col-span-2 shadow-sm active:bg-emerald-100">
                  {(highestBet === 0 || player.betThisRound === highestBet) ? 'Check' : `Call (${highestBet - player.betThisRound})`}
               </button>
-              <button onClick={onRaise} className="bg-slate-800 text-white font-bold py-3.5 rounded-xl text-xs shadow-md active:bg-slate-700">Raise</button>
+              <button onClick={() => setShowRaiseDrawer(true)} className="bg-slate-800 text-white font-bold py-3.5 rounded-xl text-xs shadow-md active:bg-slate-700">Raise</button>
             </div>
           </motion.div>
         </AnimatePresence>
@@ -648,65 +805,138 @@ export default function App() {
     );
   };
 
-  const renderSummary = () => (
-    <div className="flex flex-col p-6 min-h-screen bg-slate-100 select-none">
-      <div className="pt-8 mb-6">
-        <h2 className="text-3xl font-black text-slate-800 mb-2">手牌复盘生成</h2>
-        <p className="text-sm font-bold text-slate-400 flex items-center">
-           总底池: <span className="bg-slate-800 text-white px-2 py-0.5 rounded-lg ml-2 font-mono text-lg">{potSize}</span>
-        </p>
+  const renderSummary = () => {
+    let rollingPot = 0;
+    const streets = [];
+    let currentStreet = null;
+
+    history.forEach(h => {
+      if (h.isDivider) {
+        if (!h.text.includes('结算')) {
+          if (currentStreet) streets.push(currentStreet);
+          let nName = '翻牌前';
+          if (h.text.includes('Flop')) nName = '翻牌';
+          if (h.text.includes('Turn')) nName = '转牌';
+          if (h.text.includes('River')) nName = '河牌';
+          currentStreet = { name: nName, startPot: rollingPot, actions: [], cards: h.cards || [] };
+        } else {
+          if (currentStreet) streets.push(currentStreet);
+          currentStreet = { name: '比牌', startPot: rollingPot, actions: [], cards: [] };
+        }
+      } else {
+         if (!currentStreet) {
+            currentStreet = { name: '盲注(前注)', startPot: 0, actions: [], cards: [] };
+         }
+         currentStreet.actions.push(h);
+         if (!h.isWinLog && typeof h.pot === 'number') {
+            rollingPot = h.pot;
+         }
+      }
+    });
+    if (currentStreet && (currentStreet.actions.length > 0 || currentStreet.name === '比牌')) {
+       streets.push(currentStreet);
+    }
+
+    const parseAction = (actStr) => {
+        let s = actStr.replace('Raise to', '加注 $').replace('Call', '跟注 $').replace('Check', '让牌').replace('Fold', '弃牌').replace('All-in', '全下 $');
+        return s.split(' ');
+    };
+
+    return (
+    <div className="flex flex-col min-h-screen bg-[#1e2024] text-white select-none">
+      <div className="pt-6 mb-2 px-4 shadow-sm pb-2 z-10 z-20">
+        <h2 className="text-2xl font-black text-amber-500 mb-1">手牌复盘</h2>
+        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center">
+            总底池: <span className="text-amber-400 ml-1 text-sm font-mono">${potSize}</span>
+        </div>
       </div>
 
-      <div className="bg-white rounded-[2rem] shadow-sm p-5 mb-8 flex-1 overflow-y-auto w-full no-scrollbar">
-          {/* 顶部展示本局已知手牌 */}
-          <div className="mb-6 flex flex-wrap gap-3 pb-4 border-b-2 border-slate-100">
-             <div className="text-xs font-bold text-slate-400 mb-1 w-full">本局已知手牌：</div>
-           {players.map(p => {
-             if (p.isHero || (p.knownCards && p.knownCards.some(c => c !== null))) {
-               return (
-                 <div key={p.id} className={`flex flex-col items-center p-2 rounded-xl border ${p.isHero ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
-                    <span className="text-xs font-black mb-1 text-slate-600">{p.name}{p.isHero ? ' 👑' : ''}</span>
-                    <div className="flex">
-                      {p.knownCards[0] ? formatCard(p.knownCards[0]) : <span className="text-slate-300 mx-1">?</span>}
-                      {p.knownCards[1] ? formatCard(p.knownCards[1]) : <span className="text-slate-300 mx-1">?</span>}
-                    </div>
-                 </div>
-               )
-             }
-             return null;
-           })}
-        </div>
+      <div 
+        ref={scrollRef}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        style={{ touchAction: 'pan-x pan-y', cursor: 'grab' }}
+        className="flex-1 overflow-x-auto overflow-y-hidden w-full no-scrollbar pb-[100px]"
+      >
+        <div className="flex min-w-max h-full border-t border-b border-[#303338] bg-[#2b2d31]">
+           {streets.map((street, idx) => (
+             <div key={idx} className="w-[110px] flex flex-col border-r border-[#3a3d42] shrink-0">
+                <div className="py-2 text-center bg-[#191b1e] border-b border-[#3a3d42] flex flex-col items-center justify-center min-h-[46px]">
+                   <div className="text-[10px] text-[#8e949c] font-bold">{street.name}</div>
+                   {street.startPot > 0 && <div className="text-amber-400 font-black text-[11px] leading-none mt-0.5">${street.startPot}</div>}
+                </div>
+                
+                {street.cards && street.cards.length > 0 && (
+                   <div className="flex justify-center items-center py-1.5 bg-[#222428] border-b border-[#3a3d42]/70 min-h-[36px]">
+                     <div className="flex scale-[0.6] origin-center -m-4">{street.cards.map((c, j) => <span key={j}>{formatCard(c)}</span>)}</div>
+                   </div>
+                )}
 
-        {history.map((h, i) => {
-          if (h.isDivider) {
-            return (
-              <div key={i} className="my-5 pt-5 border-t-2 border-dashed border-slate-100 text-center">
-                 <span className="bg-amber-100 text-amber-800 px-4 py-1.5 text-xs font-black rounded-xl tracking-wider">{h.text}</span>
-                 {h.cards && h.cards.length > 0 && <div className="mt-3 flex justify-center">{h.cards.map((c, j)=><span key={j}>{formatCard(c)}</span>)}</div>}
-              </div>
-            );
-          }
-          return (
-            <div key={i} className={`flex items-center mb-3 text-sm p-3 rounded-xl border ${h.isWinLog ? 'bg-amber-50 border-amber-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
-              <span className="w-16 font-black text-slate-700 text-center">{h.player}</span>
-              <span className={`flex-1 font-bold ${h.action.includes('Fold') ? 'text-red-400' : h.action.includes('Call') || h.action.includes('Check') ? 'text-emerald-500' : h.isWinLog ? 'text-amber-600 font-black' : 'text-blue-600'}`}>{h.action}</span>
-              {!h.isWinLog && <span className="text-xs text-slate-400 font-mono bg-white px-2 py-1 rounded shadow-sm border border-slate-200">Pot: {h.pot}</span>}
-            </div>
-          );
-        })}
+                <div className="flex-1 px-1.5 py-3 overflow-y-auto space-y-4 no-scrollbar">
+                   {street.actions.map((act, j) => {
+                     if (act.isWinLog) {
+                        return (
+                          <div key={j} className="bg-[#f5c64b] rounded-lg p-2 text-center shadow-md text-black mt-2">
+                             <div className="font-extrabold text-[10px] leading-snug">{act.action}</div>
+                          </div>
+                        )
+                     }
+                     const pActionArray = parseAction(act.action);
+                     const isHeroAction = act.isHero === true || (act.isHero !== false && players.some(p => p.name === act.player && p.isHero));
+                     
+                     if (isHeroAction) {
+                        return (
+                          <div key={j} className="flex w-full justify-end items-start gap-1.5 pl-2 group transition-opacity">
+                             <div className="relative bg-[#f5c64b] text-black px-1.5 py-1 rounded shadow-md border border-[#dbb142] flex flex-col items-center justify-center min-w-[36px] text-center z-10">
+                                {pActionArray.map((p, i)=><div key={i} className="text-[9px] font-extrabold leading-tight">{p}</div>)}
+                                <div className="absolute top-2 -right-[4px] border-t-[4px] border-t-transparent border-l-[4px] border-l-[#f5c64b] border-b-[4px] border-b-transparent"></div>
+                                <div className="absolute top-2 -right-[5px] border-t-[4px] border-t-transparent border-l-[4px] border-l-[#dbb142] border-b-[4px] border-b-transparent -z-10"></div>
+                             </div>
+                             <div className="flex flex-col items-center shrink-0 w-8">
+                                <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-amber-500 overflow-hidden flex items-center justify-center text-xs shadow-sm">👑</div>
+                                <div className="bg-[#141517] text-amber-500/90 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-amber-600/50 font-bold max-w-full truncate">Hero</div>
+                             </div>
+                          </div>
+                        )
+                     } else {
+                        return (
+                          <div key={j} className="flex w-full justify-start items-start gap-1.5 pr-2 group transition-opacity">
+                             <div className="flex flex-col items-center shrink-0 w-8">
+                                <div className="w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-500 overflow-hidden flex items-center justify-center text-[9px] text-slate-200 font-black shadow-sm uppercase tracking-tighter">
+                                   {act.player.substring(0,3)}
+                                </div>
+                                <div className="bg-[#141517] text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">{act.player}</div>
+                             </div>
+                             <div className="relative bg-white text-slate-900 px-1.5 py-1 rounded shadow-md border border-slate-200 flex flex-col items-center justify-center min-w-[36px] text-center z-10">
+                                <div className="absolute top-2 -left-[4px] border-t-[4px] border-t-transparent border-r-[4px] border-r-white border-b-[4px] border-b-transparent"></div>
+                                <div className="absolute top-2 -left-[5px] border-t-[4px] border-t-transparent border-r-[4px] border-r-slate-200 border-b-[4px] border-b-transparent -z-10"></div>
+                                {pActionArray.map((p, i)=><div key={i} className="text-[9px] font-extrabold leading-tight">{p}</div>)}
+                             </div>
+                          </div>
+                        )
+                     }
+                   })}
+                </div>
+             </div>
+           ))}
+        </div>
       </div>
       
-      {isViewingSave ? (
-        <button onClick={() => setStage('home')} className="mt-auto mb-6 bg-slate-800 text-white p-5 rounded-2xl font-bold text-lg active:scale-95 transition-transform flex justify-center shadow-xl">
-          返回首页
-        </button>
-      ) : (
-        <button onClick={saveCurrentGame} className="mt-auto mb-6 bg-emerald-600 hover:bg-emerald-500 text-white p-5 rounded-2xl font-bold text-lg active:scale-95 transition-transform flex justify-center shadow-xl">
-          保存记录并返回首页
-        </button>
-      )}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#1e2024]/90 backdrop-blur-md p-4 border-t border-[#303338] z-30">
+        {isViewingSave ? (
+          <button onClick={() => setStage('home')} className="w-full bg-[#3a3d42] hover:bg-[#4a4d52] active:scale-95 transition-transform text-white py-4 rounded-2xl font-bold text-sm shadow-xl border border-[#4a4d52]">
+            返回首页
+          </button>
+        ) : (
+          <button onClick={saveCurrentGame} className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform text-white py-4 rounded-2xl font-black text-sm shadow-[0_10px_30px_rgb(5,150,105,0.4)] border border-emerald-400">
+            保存对局并返回首页
+          </button>
+        )}
+      </div>
     </div>
-  );
+  )};
 
   return (
     <div className="font-sans max-w-md mx-auto relative bg-slate-900 border-x border-slate-800 min-h-screen shadow-2xl overflow-hidden">
