@@ -43,7 +43,7 @@ poker-demo/src/
 │
 ├── screens/                        # 🟣 页面级组件
 │   ├── HomeScreen.jsx              # 首页：新建牌局 + 存档列表
-│   ├── SetupScreen.jsx             # 配置页：人数、盲注、Hero位置、底牌
+│   ├── SetupScreen.jsx             # 配置页：人数、盲注、Hero位置、底牌，可放弃并返回首页
 │   ├── PlayScreen.jsx              # 牌桌页：行动卡片 + 顶部状态 + 底部玩家条
 │   ├── ResolutionScreen.jsx        # 结算页：选赢家 + 补录亮牌
 │   └── SummaryScreen.jsx           # 复盘页：时间线式牌局回放

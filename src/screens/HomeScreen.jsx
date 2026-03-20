@@ -147,10 +147,9 @@ export default function HomeScreen() {
                     <div className="min-w-0">
                       <div className="text-[10px] text-slate-400 font-mono truncate">{game.date}</div>
                       <div className={`text-xs font-black ${netClass}`}>
-                          净值: {summary.net >= 0 ? '+' : ''}{Math.round(summary.net)}
+                        {summary.net >= 0 ? '+' : ''}{Math.round(summary.net)}
                       </div>
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] text-slate-500 mb-0.5">公共牌</div>
                       <div className="flex flex-wrap gap-1 min-h-[18px]">
