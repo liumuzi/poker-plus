@@ -48,8 +48,8 @@ export default function SetupScreen() {
             <input
               type="number"
               pattern="[0-9]*"
-              value={sbAmount}
-              onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { sb: Number(e.target.value) || 0 } })}
+              value={sbAmount === 0 ? '' : sbAmount}
+                onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { sb: e.target.value === '' ? 0 : Number(e.target.value) } })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
           </div>
@@ -58,8 +58,8 @@ export default function SetupScreen() {
             <input
               type="number"
               pattern="[0-9]*"
-              value={bbAmount}
-              onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { bb: Number(e.target.value) || 0 } })}
+              value={bbAmount === 0 ? '' : bbAmount}
+                onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { bb: e.target.value === '' ? 0 : Number(e.target.value) } })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
           </div>

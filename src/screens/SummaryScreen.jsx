@@ -132,9 +132,29 @@ export default function SummaryScreen() {
             <div className="text-slate-400">已发公共牌</div>
             <div className="font-black text-xs text-white">{dealtCommunityCards}/5</div>
           </div>
-        </div>
-        <button
-          onClick={handleRewriteFromStart}
+
+          </div>
+          {/* 玩家手牌展示 */}
+          {players.some(p => (p.knownCards && p.knownCards.filter(Boolean).length > 0) || (p.isHero && heroCards && heroCards.filter(Boolean).length > 0)) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {players.map(p => {
+                const cards = (p.isHero && heroCards && heroCards.filter(Boolean).length > 0) ? heroCards : (p.knownCards || []);
+                const validCards = cards.filter(Boolean);
+                if (validCards.length === 0) return null;
+                return (
+                  <div key={p.id} className="flex items-center space-x-3 bg-[#2b2d31] pr-3 pl-2 py-1 rounded-lg border border-[#3a3d42]">
+                    <span className="text-xs text-slate-300 font-bold">{p.name}</span>
+                    <div className="flex scale-[0.65] origin-left -m-4 ml-1">
+                      {validCards.map((c, i) => <CardDisplay key={i} card={c} />)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={handleRewriteFromStart}
           className="mt-3 text-xs px-3 py-1.5 rounded-full border font-bold bg-[#2b2d31] text-slate-300 border-[#3a3d42]"
         >
           回到记录界面重写本手

@@ -25,10 +25,12 @@ export default function HomeScreen() {
     const winnerCount = winnerNames.length;
     const wonShare = heroWon && winnerCount > 0 ? Number(game.potSize || 0) / winnerCount : 0;
     const net = wonShare - heroInvested;
+    const heroCards = game.heroCards || (hero && hero.knownCards) || [];
 
     return {
       net,
       community,
+      heroCards,
     };
   };
 
@@ -143,25 +145,41 @@ export default function HomeScreen() {
                   onClick={() => handleLoadSave(game)}
                   className={`bg-slate-800 rounded-xl px-3 py-2.5 border-l-4 ${borderClass} shadow-sm cursor-pointer hover:bg-slate-700 transition-colors`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[10px] text-slate-400 font-mono truncate">{game.date}</div>
-                      <div className={`text-xs font-black ${netClass}`}>
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="shrink-0 w-[55px] pt-1 pb-1 flex flex-col justify-center">
+                      <div className="text-[10px] text-slate-400 font-mono truncate mb-1">{game.date ? game.date.split(' ')[0] : ''}</div>
+                      <div className={`text-base font-black ${netClass}`}>
                         {summary.net >= 0 ? '+' : ''}{Math.round(summary.net)}
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-slate-500 mb-0.5">公共牌</div>
-                      <div className="flex flex-wrap gap-1 min-h-[18px]">
-                        {summary.community.length === 0 ? (
-                          <span className="text-[10px] text-slate-500">未发牌</span>
-                        ) : (
-                          summary.community.map((card, idx) => (
-                            <span key={`${game.id}-${idx}`} className="text-[10px] bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded">
-                              {formatCompactCard(card)}
-                            </span>
-                          ))
-                        )}
+<div className="flex-1 min-w-0 flex flex-col gap-[7px] py-[3px]">
+                        <div className="flex items-start gap-2">
+                          <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">手牌</div>
+                          <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
+                            {summary.heroCards && summary.heroCards.filter(Boolean).length > 0 ? (
+                              summary.heroCards.filter(Boolean).map((card, idx) => (
+                                <span key={`hero-${game.id}-${idx}`} className="text-[10px] bg-indigo-900 border border-indigo-700 text-indigo-100 px-1 py-0.5 rounded">
+                                  {formatCompactCard(card)}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-slate-500 leading-[18px]">—</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">公共牌</div>
+                          <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
+                            {summary.community.length === 0 ? (
+                              <span className="text-[10px] text-slate-500 leading-[18px]">未发牌</span>
+                            ) : (
+                              summary.community.map((card, idx) => (
+                                <span key={`${game.id}-${idx}`} className="text-[10px] bg-slate-700 text-slate-200 px-1 py-0.5 rounded">
+                                  {formatCompactCard(card)}
+                                </span>
+                              ))
+                            )}
+                          </div>
                       </div>
                     </div>
 
