@@ -93,9 +93,9 @@ export default function HomeScreen() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen p-6 bg-slate-900 text-white select-none">
+    <div className="flex flex-col items-center min-h-screen p-6 bg-felt-700 text-white select-none">
       <div className="flex-1 flex flex-col items-center justify-center w-full mt-10">
-        <h1 className="text-5xl font-extrabold mb-2 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
+        <h1 className="text-7xl font-display mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
           Poker+
         </h1>
         <p className="text-slate-400 mb-12 tracking-widest text-sm text-center">
@@ -117,7 +117,7 @@ export default function HomeScreen() {
       </div>
 
       <div className="w-full max-w-sm pb-10">
-        <h3 className="text-lg font-bold text-slate-300 mb-4 border-b border-slate-700 pb-2">
+        <h3 className="text-lg font-bold text-slate-300 mb-4 border-b border-felt-300 pb-2">
           本地存档记录 ({savedGames.length})
         </h3>
         {savedGames.length === 0 ? (
@@ -143,7 +143,7 @@ export default function HomeScreen() {
                 <div
                   key={game.id}
                   onClick={() => handleLoadSave(game)}
-                  className={`bg-slate-800 rounded-xl px-3 py-2.5 border-l-4 ${borderClass} shadow-sm cursor-pointer hover:bg-slate-700 transition-colors`}
+                  className={`bg-felt-500 rounded-xl px-3 py-2.5 border-l-4 ${borderClass} shadow-sm cursor-pointer hover:bg-felt-300 transition-colors`}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <div className="shrink-0 w-[55px] pt-1 pb-1 flex flex-col justify-center">

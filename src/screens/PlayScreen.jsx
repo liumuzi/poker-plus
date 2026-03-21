@@ -28,10 +28,10 @@ export default function PlayScreen() {
   return (
     <div className="flex flex-col min-h-screen max-h-screen bg-slate-50 relative select-none">
       {/* 顶部状态板 */}
-      <div className="flex-none bg-slate-900 text-white px-6 pt-8 pb-6 rounded-b-[2rem] shadow-lg z-10 relative">
+      <div className="flex-none bg-felt-700 text-white px-6 pt-8 pb-6 rounded-b-[2rem] shadow-lg z-10 relative">
         <button
           onClick={handleExitToHome}
-          className="absolute top-8 left-6 text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all"
+          className="absolute top-8 left-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all"
         >
           放弃并返回
         </button>
@@ -39,7 +39,7 @@ export default function PlayScreen() {
         {historySnapshots.length > 0 && (
           <button
             onClick={handleUndo}
-            className="absolute top-8 right-6 text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all"
+            className="absolute top-8 right-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
               <path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
@@ -51,17 +51,17 @@ export default function PlayScreen() {
         <div className="flex justify-between items-end mb-4 pr-24">
           <div>
             <div className="text-xs text-slate-400 font-black tracking-widest uppercase mb-1">Current Round</div>
-            <div className="text-amber-400 font-black text-2xl tracking-wider">
+            <div className="text-amber-400 font-display text-3xl tracking-widest">
               {ROUND_NAMES[bettingRound].split(' ')[0]}
             </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-400 font-black tracking-widest uppercase mb-1">Pot Size</div>
-            <div className="text-4xl font-black text-white">{potSize}</div>
+            <div className="text-5xl font-display text-white tracking-wide">{potSize}</div>
           </div>
         </div>
 
-        <div className="flex justify-between items-end border-t border-slate-700/50 pt-4">
+        <div className="flex justify-between items-end border-t border-felt-300/50 pt-4">
           <div className="flex flex-col">
             <div className="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-1">My Hand</div>
             <div className="flex">
