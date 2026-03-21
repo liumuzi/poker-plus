@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useGame } from '../contexts/GameContext';
 
 /**
@@ -8,13 +8,19 @@ import { useGame } from '../contexts/GameContext';
 export default function SwipeCard({ player }) {
   const { highestBet, bbAmount, potSize, history, dispatch } = useGame();
   const [showRaiseDrawer, setShowRaiseDrawer] = useState(false);
+  const dragX = useMotionValue(0);
+  const foldOpacity = useTransform(dragX, [-120, -30], [1, 0]);
+  const callOpacity = useTransform(dragX, [30, 120], [0, 1]);
+  const cardRotate = useTransform(dragX, [-200, 0, 200], [-6, 0, 6]);
   const isBetMode = highestBet === 0;
 
   const handleAction = (actionStr, amount) => {
     dispatch({ type: 'PLAYER_ACTION', payload: { action: actionStr, amount } });
   };
 
+  const onDrag = (_, { offset }) => dragX.set(offset.x);
   const onDragEnd = (_, { offset }) => {
+    dragX.set(0);
     if (offset.x < -60) handleAction('Fold');
     else if (offset.x > 60) handleAction('Check/Call');
   };
@@ -57,13 +63,31 @@ export default function SwipeCard({ player }) {
           drag="x"
           dragSnapToOrigin={true}
           dragElastic={0.4}
+          onDrag={onDrag}
           onDragEnd={onDragEnd}
+          style={{ rotate: cardRotate }}
           initial={{ opacity: 0, scale: 0.9, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: -30 }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
           className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-[0_15px_50px_rgb(0,0,0,0.15)] border border-slate-100 p-8 flex flex-col items-center absolute z-20"
         >
+          {/* 左滑 FOLD 提示 */}
+          <motion.div
+            style={{ opacity: foldOpacity }}
+            className="absolute left-6 top-7 font-display text-2xl tracking-widest text-red-500 border-[3px] border-red-500 rounded-lg px-3 py-0.5 -rotate-12 pointer-events-none select-none z-40"
+          >
+            FOLD
+          </motion.div>
+
+          {/* 右滑 CALL 提示 */}
+          <motion.div
+            style={{ opacity: callOpacity }}
+            className="absolute right-6 top-7 font-display text-2xl tracking-widest text-emerald-500 border-[3px] border-emerald-500 rounded-lg px-3 py-0.5 rotate-12 pointer-events-none select-none z-40"
+          >
+            {(highestBet === 0 || player.betThisRound === highestBet) ? 'CHECK' : 'CALL'}
+          </motion.div>
+
           {showRaiseDrawer && (
             <div className="absolute inset-0 bg-white z-30 rounded-[2.5rem] flex flex-col p-6 overflow-hidden">
               <div className="flex justify-between items-center mb-6">

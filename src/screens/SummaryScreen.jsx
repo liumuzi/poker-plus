@@ -111,24 +111,24 @@ export default function SummaryScreen() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#1e2024] text-white select-none">
+    <div className="flex flex-col min-h-screen bg-felt-700 text-white select-none">
       <div className="pt-6 mb-2 px-4 shadow-sm pb-2 z-20">
         <h2 className="text-2xl font-black text-amber-500 mb-1">手牌复盘</h2>
         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center">
-          总底池: <span className="text-amber-400 ml-1 text-sm font-mono">${potSize}</span>
+          总底池: <span className="text-amber-400 ml-1 text-lg font-display tracking-wider">${potSize}</span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]">
-          <div className="rounded-lg bg-[#2b2d31] border border-[#3a3d42] p-2">
+          <div className="rounded-lg bg-felt-500 border border-felt-300 p-2">
             <div className="text-slate-400">本手结果</div>
             <div className={`font-black text-xs ${heroSummary.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {heroSummary.resultText} {heroSummary.net >= 0 ? '+' : ''}{Math.round(heroSummary.net)}
             </div>
           </div>
-          <div className="rounded-lg bg-[#2b2d31] border border-[#3a3d42] p-2">
+          <div className="rounded-lg bg-felt-500 border border-felt-300 p-2">
             <div className="text-slate-400">Hero投入</div>
             <div className="font-black text-xs text-white">{Math.round(heroInvested)}</div>
           </div>
-          <div className="rounded-lg bg-[#2b2d31] border border-[#3a3d42] p-2">
+          <div className="rounded-lg bg-felt-500 border border-felt-300 p-2">
             <div className="text-slate-400">已发公共牌</div>
             <div className="font-black text-xs text-white">{dealtCommunityCards}/5</div>
           </div>
@@ -142,7 +142,7 @@ export default function SummaryScreen() {
                 const validCards = cards.filter(Boolean);
                 if (validCards.length === 0) return null;
                 return (
-                  <div key={p.id} className="flex items-center space-x-3 bg-[#2b2d31] pr-3 pl-2 py-1 rounded-lg border border-[#3a3d42]">
+                  <div key={p.id} className="flex items-center space-x-3 bg-felt-500 pr-3 pl-2 py-1 rounded-lg border border-felt-300">
                     <span className="text-xs text-slate-300 font-bold">{p.name}</span>
                     <div className="flex scale-[0.65] origin-left -m-4 ml-1">
                       {validCards.map((c, i) => <CardDisplay key={i} card={c} />)}
@@ -155,7 +155,7 @@ export default function SummaryScreen() {
 
           <button
             onClick={handleRewriteFromStart}
-          className="mt-3 text-xs px-3 py-1.5 rounded-full border font-bold bg-[#2b2d31] text-slate-300 border-[#3a3d42]"
+          className="mt-3 text-xs px-3 py-1.5 rounded-full border font-bold bg-felt-500 text-slate-300 border-felt-300"
         >
           回到记录界面重写本手
         </button>
@@ -170,22 +170,22 @@ export default function SummaryScreen() {
         style={{ touchAction: 'pan-x pan-y', cursor: 'grab' }}
         className="flex-1 overflow-x-auto overflow-y-hidden w-full no-scrollbar pb-[100px]"
       >
-        <div className="flex min-w-max h-full border-t border-b border-[#303338] bg-[#2b2d31]">
+        <div className="flex min-w-max h-full border-t border-b border-felt-400 bg-felt-500">
           {streetsWithBoard.map((street, idx) => {
             const numCards = street.boardCards ? street.boardCards.length : 0;
             const colWidth = numCards === 5 ? 'w-[160px]' : numCards === 4 ? 'w-[130px]' : 'w-[110px]';
             
             return (
-              <div key={idx} className={`${colWidth} flex flex-col border-r border-[#3a3d42] shrink-0 transition-all`}>
-                <div className="py-2 text-center bg-[#191b1e] border-b border-[#3a3d42] flex flex-col items-center justify-center min-h-[46px]">
-                  <div className="text-[10px] text-[#8e949c] font-bold">{street.name}</div>
+              <div key={idx} className={`${colWidth} flex flex-col border-r border-felt-300 shrink-0 transition-all`}>
+                <div className="py-2 text-center bg-felt-800 border-b border-felt-300 flex flex-col items-center justify-center min-h-[46px]">
+                  <div className="text-[10px] text-felt-muted font-bold">{street.name}</div>
                 {street.startPot > 0 && (
                   <div className="text-amber-400 font-black text-[11px] leading-none mt-0.5">${street.startPot}</div>
                 )}
               </div>
 
               {street.boardCards && street.boardCards.length > 0 && (
-                <div className="flex justify-center items-center py-1.5 bg-[#222428] border-b border-[#3a3d42]/70 min-h-[36px]">
+                <div className="flex justify-center items-center py-1.5 bg-felt-600 border-b border-felt-300/70 min-h-[36px]">
                   <div className="flex scale-[0.6] origin-center -m-4">
                     {street.boardCards.map((c, j) => <CardDisplay key={j} card={c} />)}
                   </div>
@@ -196,7 +196,7 @@ export default function SummaryScreen() {
                 {street.actions.map((act, j) => {
                   if (act.isWinLog) {
                     return (
-                      <div key={j} className="bg-[#f5c64b] rounded-lg p-2 text-center shadow-md text-black mt-2">
+                      <div key={j} className="bg-chip-gold rounded-lg p-2 text-center shadow-md text-black mt-2">
                         <div className="font-extrabold text-[10px] leading-snug">{act.action}</div>
                       </div>
                     );
@@ -208,14 +208,14 @@ export default function SummaryScreen() {
                   if (isHeroAction) {
                     return (
                       <div key={j} className="flex w-full justify-end items-start gap-1.5 pl-2 group transition-opacity">
-                        <div className="relative bg-[#f5c64b] text-black px-1.5 py-1 rounded shadow-md border border-[#dbb142] flex flex-col items-center justify-center min-w-[36px] text-center z-10">
+                        <div className="relative bg-chip-gold text-black px-1.5 py-1 rounded shadow-md border border-chip-gold-dark flex flex-col items-center justify-center min-w-[36px] text-center z-10">
                           {pActionArray.map((p, i) => <div key={i} className="text-[9px] font-extrabold leading-tight">{p}</div>)}
-                          <div className="absolute top-2 -right-[4px] border-t-[4px] border-t-transparent border-l-[4px] border-l-[#f5c64b] border-b-[4px] border-b-transparent"></div>
-                          <div className="absolute top-2 -right-[5px] border-t-[4px] border-t-transparent border-l-[4px] border-l-[#dbb142] border-b-[4px] border-b-transparent -z-10"></div>
+                          <div className="absolute top-2 -right-[4px] border-t-[4px] border-t-transparent border-l-[4px] border-l-chip-gold border-b-[4px] border-b-transparent"></div>
+                          <div className="absolute top-2 -right-[5px] border-t-[4px] border-t-transparent border-l-[4px] border-l-chip-gold-dark border-b-[4px] border-b-transparent -z-10"></div>
                         </div>
                         <div className="flex flex-col items-center shrink-0 w-8">
                           <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-amber-500 overflow-hidden flex items-center justify-center text-xs shadow-sm">👑</div>
-                          <div className="bg-[#141517] text-amber-500/90 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-amber-600/50 font-bold max-w-full truncate">Hero</div>
+                          <div className="bg-felt-900 text-amber-500/90 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-amber-600/50 font-bold max-w-full truncate">Hero</div>
                         </div>
                       </div>
                     );
@@ -226,7 +226,7 @@ export default function SummaryScreen() {
                           <div className="w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-500 overflow-hidden flex items-center justify-center text-[9px] text-slate-200 font-black shadow-sm uppercase tracking-tighter">
                             {act.player.substring(0, 3)}
                           </div>
-                          <div className="bg-[#141517] text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">
+                          <div className="bg-felt-900 text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">
                             {act.player}
                           </div>
                         </div>
@@ -246,11 +246,11 @@ export default function SummaryScreen() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-[#1e2024]/90 backdrop-blur-md p-4 border-t border-[#303338] z-30">
+      <div className="fixed bottom-0 left-0 right-0 bg-felt-700/90 backdrop-blur-md p-4 border-t border-felt-400 z-30">
         {isViewingSave ? (
           <button
             onClick={handleGoHome}
-            className="w-full bg-[#3a3d42] hover:bg-[#4a4d52] active:scale-95 transition-transform text-white py-4 rounded-2xl font-bold text-sm shadow-xl border border-[#4a4d52]"
+            className="w-full bg-felt-300 hover:bg-felt-200 active:scale-95 transition-transform text-white py-4 rounded-2xl font-bold text-sm shadow-xl border border-felt-200"
           >
             返回首页
           </button>
