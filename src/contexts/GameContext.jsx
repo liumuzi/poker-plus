@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import {
   createInitialPlayers,
+  createInitialPlayersV2,
   processAction,
   checkRoundEnd,
   findNextActor,
@@ -12,6 +13,8 @@ const GameContext = createContext(null);
 
 const initialState = {
   stage: 'home',
+  // V2 模式标记
+  isV2Mode: false,
   playerCount: 6,
   sbAmount: 1,
   bbAmount: 2,
@@ -29,6 +32,14 @@ const initialState = {
   pickingCardsTarget: null,
   tempCards: [],
   isViewingSave: false,
+  // V2 新增: 玩家自定义名称
+  playerNames: {},
+  // V2 新增: 玩家筹码信息
+  playerStacks: {},
+  // V2 新增: 复盘备注
+  gameNotes: '',
+  // V2 新增: 当前行动阶段（用于节点导航）
+  actionStage: 'setup',
 };
 
 function gameReducer(state, action) {
@@ -41,6 +52,15 @@ function gameReducer(state, action) {
         ...state,
         playerCount: action.payload.count,
         heroIndex: action.payload.count - 1,
+      };
+
+    // V2: 设置入池人数，不自动设置heroIndex为最后一个
+    case 'SET_PLAYER_COUNT_V2':
+      return {
+        ...state,
+        playerCount: action.payload.count,
+        heroIndex: state.heroIndex >= action.payload.count ? 0 : state.heroIndex,
+        isV2Mode: true,
       };
 
     case 'SET_BLINDS':
@@ -69,7 +89,33 @@ function gameReducer(state, action) {
         history: [],
         historySnapshots: [],
         winners: [],
+        isV2Mode: false,
+        playerNames: {},
+        playerStacks: {},
+        gameNotes: '',
+        actionStage: 'setup',
         stage: 'setup',
+      };
+
+    // V2: 新建游戏进入V2模式
+    case 'RESET_FOR_NEW_GAME_V2':
+      return {
+        ...state,
+        playerCount: 2,
+        heroIndex: 0,
+        heroCards: [null, null],
+        players: [],
+        communityCards: [],
+        tempCards: [],
+        history: [],
+        historySnapshots: [],
+        winners: [],
+        isV2Mode: true,
+        playerNames: {},
+        playerStacks: {},
+        gameNotes: '',
+        actionStage: 'setup',
+        stage: 'setupV2',
       };
 
     case 'EXIT_TO_HOME':
@@ -140,7 +186,123 @@ function gameReducer(state, action) {
         winners: [],
         currentTurn: 0,
         stage: 'play',
+        actionStage: 'preflop',
       };
+    }
+
+    // V2: 开始游戏，不预设盲注
+    case 'START_GAME_V2': {
+      const init = createInitialPlayersV2(
+        state.playerCount,
+        state.heroIndex,
+        state.heroCards,
+        state.playerNames
+      );
+      return {
+        ...state,
+        isViewingSave: false,
+        isV2Mode: true,
+        players: init.players,
+        potSize: 0,
+        highestBet: 0,
+        bettingRound: 0,
+        communityCards: [],
+        history: [{ isDivider: true, text: '--- 进入 翻前 (Pre-flop) ---', cards: [] }],
+        historySnapshots: [],
+        winners: [],
+        currentTurn: 0,
+        stage: 'play',
+        actionStage: 'preflop',
+      };
+    }
+
+    // V2: 更新玩家名称
+    case 'UPDATE_PLAYER_NAME': {
+      const newNames = { ...state.playerNames };
+      newNames[action.payload.playerId] = action.payload.name;
+      
+      // 如果游戏已经开始，也更新players数组中的名称
+      let updatedPlayers = state.players;
+      if (state.players.length > 0) {
+        updatedPlayers = state.players.map((p) => {
+          if (p.id === action.payload.playerId) {
+            return { ...p, name: action.payload.name };
+          }
+          return p;
+        });
+      }
+      
+      return { 
+        ...state, 
+        playerNames: newNames,
+        players: updatedPlayers,
+      };
+    }
+
+    // V2: 更新玩家筹码
+    case 'UPDATE_PLAYER_STACK': {
+      const newStacks = { ...state.playerStacks };
+      newStacks[action.payload.playerId] = action.payload.stack;
+      
+      // 如果游戏已经开始，也更新players数组中的筹码
+      let updatedPlayers = state.players;
+      if (state.players.length > 0) {
+        updatedPlayers = state.players.map((p) => {
+          if (p.id === action.payload.playerId) {
+            return { ...p, stackSize: action.payload.stack };
+          }
+          return p;
+        });
+      }
+      
+      return { 
+        ...state, 
+        playerStacks: newStacks,
+        players: updatedPlayers,
+      };
+    }
+
+    // V2: 更新复盘备注
+    case 'UPDATE_GAME_NOTES':
+      return { ...state, gameNotes: action.payload.notes };
+
+    // V2: 导航到指定阶段
+    case 'NAVIGATE_TO_STAGE': {
+      const targetStage = action.payload.stage;
+      // 找到该阶段对应的历史快照
+      const stageToRound = { 'preflop': 0, 'flop': 1, 'turn': 2, 'river': 3 };
+      const targetRound = stageToRound[targetStage];
+      
+      if (targetRound === undefined || targetStage === 'setup') {
+        return { ...state, stage: 'setupV2', actionStage: 'setup' };
+      }
+      
+      // 查找对应阶段的快照
+      // 这里简化处理：如果目标阶段小于当前阶段，需要回滚
+      if (targetRound < state.bettingRound && state.historySnapshots.length > 0) {
+        // 找到对应阶段的快照
+        let snapshotIndex = -1;
+        for (let i = state.historySnapshots.length - 1; i >= 0; i--) {
+          if (state.historySnapshots[i].bettingRound === targetRound) {
+            snapshotIndex = i;
+            break;
+          }
+        }
+        
+        if (snapshotIndex >= 0) {
+          const snapshot = state.historySnapshots[snapshotIndex];
+          return {
+            ...state,
+            ...restoreSnapshot(snapshot),
+            historySnapshots: state.historySnapshots.slice(0, snapshotIndex),
+            stage: 'play',
+            actionStage: targetStage,
+            pickingCardsTarget: null,
+          };
+        }
+      }
+      
+      return { ...state, actionStage: targetStage };
     }
 
     case 'PLAYER_ACTION': {

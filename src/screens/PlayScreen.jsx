@@ -5,11 +5,12 @@ import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import SwipeCard from '../components/SwipeCard';
 import PlayerBadge from '../components/PlayerBadge';
+import StageNavigation from '../components/StageNavigation';
 
 export default function PlayScreen() {
   const {
     players, currentTurn, bettingRound, potSize,
-    heroCards, communityCards, historySnapshots, dispatch,
+    heroCards, communityCards, historySnapshots, isV2Mode, dispatch,
   } = useGame();
 
   const activePlayer = players[currentTurn];
@@ -25,13 +26,33 @@ export default function PlayScreen() {
     dispatch({ type: 'EXIT_TO_HOME' });
   };
 
+  // 获取当前阶段名称用于导航
+  const getCurrentStageName = () => {
+    const stageMap = ['preflop', 'flop', 'turn', 'river'];
+    return stageMap[bettingRound] || 'preflop';
+  };
+
+  const handleNavigateToStage = (stageName) => {
+    dispatch({ type: 'NAVIGATE_TO_STAGE', payload: { stage: stageName } });
+  };
+
   return (
     <div className="flex flex-col min-h-screen max-h-screen bg-slate-50 relative select-none">
+      {/* V2模式：顶部节点流程导航 */}
+      {isV2Mode && (
+        <div className="flex-none bg-slate-900 pt-2 pb-2 px-4 z-20">
+          <StageNavigation
+            currentStage={getCurrentStageName()}
+            onNavigate={handleNavigateToStage}
+          />
+        </div>
+      )}
+
       {/* 顶部状态板 */}
-      <div className="flex-none bg-felt-700 text-white px-6 pt-8 pb-6 rounded-b-[2rem] shadow-lg z-10 relative">
+      <div className={`flex-none bg-felt-700 text-white px-6 ${isV2Mode ? 'pt-4' : 'pt-8'} pb-6 rounded-b-[2rem] shadow-lg z-10 relative`}>
         <button
           onClick={handleExitToHome}
-          className="absolute top-8 left-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all"
+          className={`absolute ${isV2Mode ? 'top-4' : 'top-8'} left-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all`}
         >
           放弃并返回
         </button>
@@ -39,7 +60,7 @@ export default function PlayScreen() {
         {historySnapshots.length > 0 && (
           <button
             onClick={handleUndo}
-            className="absolute top-8 right-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all"
+            className={`absolute ${isV2Mode ? 'top-4' : 'top-8'} right-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
               <path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />

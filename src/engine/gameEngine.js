@@ -42,6 +42,46 @@ export function createInitialPlayers(playerCount, heroIndex, heroCards, sbAmount
 }
 
 /**
+ * V2: 创建初始玩家列表，不预设盲注
+ * 玩家命名为: BTN, 玩家1, 玩家2... Hero
+ */
+export function createInitialPlayersV2(playerCount, heroIndex, heroCards, customNames = {}) {
+  const safeCount = Number.isInteger(playerCount) && playerCount >= 2 ? playerCount : 2;
+  
+  const players = [];
+  for (let idx = 0; idx < safeCount; idx++) {
+    let defaultName;
+    if (idx === 0) {
+      defaultName = 'BTN';
+    } else if (idx === heroIndex) {
+      defaultName = 'Hero';
+    } else {
+      defaultName = `玩家${idx}`;
+    }
+    
+    players.push({
+      id: idx,
+      name: customNames[idx] || defaultName,
+      folded: false,
+      allIn: false,
+      betThisRound: 0,
+      totalInvested: 0,
+      actedThisRound: false,
+      isHero: idx === heroIndex,
+      knownCards: [null, null],
+      stackSize: 0, // V2新增：后手筹码
+    });
+  }
+
+  const safeHeroIndex = Math.min(Math.max(0, heroIndex ?? 0), players.length - 1);
+  players[safeHeroIndex].knownCards = [...heroCards];
+  players[safeHeroIndex].isHero = true;
+  players[safeHeroIndex].name = customNames[safeHeroIndex] || 'Hero';
+
+  return { players, potSize: 0, highestBet: 0, history: [] };
+}
+
+/**
  * 处理玩家行动（纯函数）
  * @returns 新状态片段，或 null 表示无效操作
  */
@@ -228,8 +268,9 @@ export function transitionToNextStreet(
     };
   }
 
-  // 正常：翻后从 SB 前的位置搜索第一个可行动玩家
-  const nextActor = findNextActor(playerCount - 3, p);
+  // 正常：翻后从第一个位置开始搜索第一个可行动玩家（跳过 folded 和 all-in 玩家）
+  // 修复：使用 -1 作为起始位置，这样 findNextActor 会从位置 0 开始检查
+  const nextActor = findNextActor(-1, p);
 
   return {
     players: p,
