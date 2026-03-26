@@ -227,6 +227,8 @@ export function useGame()
 | `LOAD_SAVED_GAME` | `{ game }` | 加载存档 |
 | `RESET_FOR_NEW_GAME` | - | 重置所有状态 (V1模式) |
 | `RESET_FOR_NEW_GAME_V2` | - | 🆕 重置所有状态 (V2模式) |
+| `SET_SETUP_COMMUNITY_CARD` | `{ index, card }` | 🆕 设置设置阶段的公共牌（不触发TRANSITION_STREET） |
+| `CLEAR_SETUP_COMMUNITY_CARDS` | - | 🆕 清除设置阶段的所有公共牌 |
 | `UPDATE_PLAYER_NAME` | `{ playerId, name }` | 🆕 更新玩家名称 |
 | `UPDATE_PLAYER_STACK` | `{ playerId, stack }` | 🆕 更新玩家后手筹码 |
 | `UPDATE_GAME_NOTES` | `{ notes }` | 🆕 更新复盘备注 |
