@@ -63,15 +63,20 @@ export default function SetupScreenV2() {
   const generatePlayerNames = () => {
     const names = [];
     for (let i = 0; i < playerCount; i++) {
-      if (i === heroIndex) {
-        names.push('Hero');
-      } else if (i === 0) {
-        names.push('BTN');
-      } else {
-        names.push(`玩家${i}`);
-      }
+      names.push(getPlayerDisplayName(i));
     }
     return names;
+  };
+
+  // 获取单个玩家显示名称（提取共用逻辑）
+  const getPlayerDisplayName = (index) => {
+    if (index === heroIndex) {
+      return 'Hero';
+    } else if (index === 0) {
+      return 'BTN';
+    } else {
+      return `玩家${index}`;
+    }
   };
 
   return (
@@ -169,7 +174,7 @@ export default function SetupScreenV2() {
               
               <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="text-sm font-bold text-blue-800">
-                  当前Hero位置: {heroIndex === 0 ? 'BTN' : `玩家${heroIndex}`}
+                  当前Hero位置: {getPlayerDisplayName(heroIndex)}
                 </div>
               </div>
             </div>
@@ -268,7 +273,7 @@ export default function SetupScreenV2() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100">
                   <span className="text-slate-500">Hero位置</span>
-                  <span className="font-bold text-slate-800">{heroIndex === 0 ? 'BTN' : `玩家${heroIndex}`}</span>
+                  <span className="font-bold text-slate-800">{getPlayerDisplayName(heroIndex)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100">
                   <span className="text-slate-500">盲注</span>

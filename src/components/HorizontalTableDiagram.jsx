@@ -76,7 +76,7 @@ export default function HorizontalTableDiagram({
                     : 'bg-slate-700 text-slate-200 border-slate-500 hover:border-blue-400'
                 }`}
             >
-              {isHero ? '👑' : pos.displayName.substring(0, 3)}
+              {isHero ? '👑' : [...pos.displayName].slice(0, 3).join('')}
             </div>
             
             {/* 位置标签 */}

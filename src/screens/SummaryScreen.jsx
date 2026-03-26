@@ -103,7 +103,7 @@ export default function SummaryScreen() {
   const handleStartEditPlayer = (player) => {
     setEditingPlayerId(player.id);
     setTempPlayerName(player.name);
-    setTempPlayerStack(player.stackSize || playerStacks?.[player.id] || '');
+    setTempPlayerStack(player.stackSize ?? playerStacks?.[player.id] ?? '');
   };
 
   const handleSavePlayerEdit = () => {
@@ -267,9 +267,9 @@ export default function SummaryScreen() {
                           <span className={`text-xs font-bold ${p.isHero ? 'text-amber-400' : 'text-slate-300'}`}>
                             {p.name} {p.isHero && '👑'}
                           </span>
-                          {(p.stackSize || playerStacks?.[p.id]) && (
+                        {(p.stackSize != null || playerStacks?.[p.id] != null) && (
                             <span className="text-[10px] text-slate-500">
-                              后手: {p.stackSize || playerStacks?.[p.id]}
+                              后手: {p.stackSize ?? playerStacks?.[p.id] ?? 0}
                             </span>
                           )}
                         </div>

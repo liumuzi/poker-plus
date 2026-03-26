@@ -274,7 +274,12 @@ function gameReducer(state, action) {
       const targetRound = stageToRound[targetStage];
       
       if (targetRound === undefined || targetStage === 'setup') {
-        return { ...state, stage: 'setupV2', actionStage: 'setup' };
+        // 根据当前模式返回对应的setup界面
+        return { 
+          ...state, 
+          stage: state.isV2Mode ? 'setupV2' : 'setup', 
+          actionStage: 'setup' 
+        };
       }
       
       // 查找对应阶段的快照
