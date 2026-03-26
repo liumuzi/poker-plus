@@ -25,11 +25,13 @@ poker-demo/src/
 │
 ├── engine/                         # 🟢 纯函数游戏引擎（零 React 依赖）
 │   ├── gameEngine.js               # 核心状态机：处理行动、判断轮次结束、翻牌过渡
+│   │                               # 包含 V2 模式函数：createInitialPlayersV2
 │   ├── cardUtils.js                # 卡牌相关纯函数：isCardUsed, 牌面格式化数据
 │   └── snapshotUtils.js            # 快照创建与恢复
 │
 ├── contexts/                       # 🟡 React 全局状态
 │   └── GameContext.jsx             # useReducer 管理游戏状态 + Provider + useGame hook
+│                                   # 包含 V2 模式 actions 和状态字段
 │
 ├── hooks/                          # 🟠 自定义 Hooks
 │   ├── useDragScroll.js            # 可拖拽滚动行为
@@ -39,14 +41,17 @@ poker-demo/src/
 │   ├── CardDisplay.jsx             # 单张卡牌渲染
 │   ├── CardPicker.jsx              # 选牌弹窗（底牌/公共牌/补录）
 │   ├── SwipeCard.jsx               # 行动卡片（含滑动手势 + 加注面板）
-│   └── PlayerBadge.jsx             # 玩家状态标签
+│   ├── PlayerBadge.jsx             # 玩家状态标签
+│   ├── HorizontalTableDiagram.jsx  # 🆕 V2 横向桌面示意图（入池人数可视化）
+│   └── StageNavigation.jsx         # 🆕 V2 节点流程导航（配置→preflop→flop→turn→river）
 │
 ├── screens/                        # 🟣 页面级组件
-│   ├── HomeScreen.jsx              # 首页：新建牌局 + 存档列表
-│   ├── SetupScreen.jsx             # 配置页：人数、盲注、Hero位置、底牌，可放弃并返回首页
-│   ├── PlayScreen.jsx              # 牌桌页：行动卡片 + 顶部状态 + 底部玩家条
+│   ├── HomeScreen.jsx              # 首页：新建牌局 + 存档列表 + V2模式入口
+│   ├── SetupScreen.jsx             # 配置页(V1)：人数、盲注、Hero位置、底牌
+│   ├── SetupScreenV2.jsx           # 🆕 配置页(V2)：入池人数→Hero位置→公共牌→盲注
+│   ├── PlayScreen.jsx              # 牌桌页：行动卡片 + 顶部状态 + 底部玩家条 + V2节点导航
 │   ├── ResolutionScreen.jsx        # 结算页：选赢家 + 补录亮牌
-│   └── SummaryScreen.jsx           # 复盘页：时间线式牌局回放
+│   └── SummaryScreen.jsx           # 复盘页：时间线式牌局回放 + V2玩家编辑/备注功能
 │
 └── utils/                          # ⚪ 通用工具
     └── formatting.js               # 行动文本解析 (parseAction) 等格式化工具
@@ -108,9 +113,13 @@ export function getPositions(count) → string[]
 ### 4.2 `engine/gameEngine.js`
 
 ```js
-// 创建初始玩家列表
+// 创建初始玩家列表 (V1 模式，预设 SB/BB)
 export function createInitialPlayers(playerCount, heroIndex, heroCards, sbAmount, bbAmount)
   → { players, potSize, highestBet, history }
+
+// 🆕 创建初始玩家列表 (V2 模式，不预设盲注，玩家命名为 BTN/玩家1/玩家2.../Hero)
+export function createInitialPlayersV2(playerCount, heroIndex, heroCards, customNames)
+  → { players, potSize: 0, highestBet: 0, history: [] }
 
 // 处理玩家行动（纯函数）
 export function processAction(gameState, actionStr, amount)
@@ -164,7 +173,7 @@ export function GameProvider({ children })
 export function useGame()
   → {
     // ---- 状态 ----
-    stage,              // 'home' | 'setup' | 'play' | 'resolution' | 'summary'
+    stage,              // 'home' | 'setup' | 'setupV2' | 'play' | 'resolution' | 'summary'
     playerCount,        // number
     sbAmount, bbAmount, // number
     heroIndex,          // number
@@ -180,6 +189,13 @@ export function useGame()
     pickingCardsTarget, // string|null
     tempCards,          // Card[]
     isViewingSave,      // boolean
+    
+    // ---- 🆕 V2 模式状态 ----
+    isV2Mode,           // boolean - 是否为V2模式
+    playerNames,        // { [playerId]: string } - 玩家自定义名称
+    playerStacks,       // { [playerId]: number } - 玩家后手筹码
+    gameNotes,          // string - 复盘备注
+    actionStage,        // 'setup'|'preflop'|'flop'|'turn'|'river' - 当前行动阶段
 
     // ---- 操作 ----
     dispatch,           // React dispatch function
@@ -191,11 +207,13 @@ export function useGame()
 | type | payload | 说明 |
 |------|---------|------|
 | `SET_STAGE` | `{ stage }` | 切换页面 |
-| `SET_PLAYER_COUNT` | `{ count }` | 设置人数 |
+| `SET_PLAYER_COUNT` | `{ count }` | 设置人数 (V1模式，heroIndex自动设为最后) |
+| `SET_PLAYER_COUNT_V2` | `{ count }` | 🆕 设置入池人数 (V2模式，heroIndex保持不变) |
 | `SET_BLINDS` | `{ sb, bb }` | 设置盲注 |
 | `SET_HERO_INDEX` | `{ index }` | 设置 Hero 位置 |
 | `SET_HERO_CARD` | `{ position, card }` | 设置 Hero 底牌 |
-| `START_GAME` | - | 初始化并进入牌局 |
+| `START_GAME` | - | 初始化并进入牌局 (V1模式，预设SB/BB) |
+| `START_GAME_V2` | - | 🆕 初始化并进入牌局 (V2模式，不预设盲注) |
 | `PLAYER_ACTION` | `{ action, amount }` | 执行玩家行动（含 Bet/Raise 区分） |
 | `UNDO` | - | 撤销上一步 |
 | `EXIT_TO_HOME` | - | 中途放弃当前牌局并返回主菜单 |
@@ -207,7 +225,12 @@ export function useGame()
 | `FINISH_HAND` | - | 最终结算 |
 | `REVEAL_PLAYER_CARD` | `{ playerIdx, cardPos, card }` | 补录玩家亮牌 |
 | `LOAD_SAVED_GAME` | `{ game }` | 加载存档 |
-| `RESET_FOR_NEW_GAME` | - | 重置所有状态 |
+| `RESET_FOR_NEW_GAME` | - | 重置所有状态 (V1模式) |
+| `RESET_FOR_NEW_GAME_V2` | - | 🆕 重置所有状态 (V2模式) |
+| `UPDATE_PLAYER_NAME` | `{ playerId, name }` | 🆕 更新玩家名称 |
+| `UPDATE_PLAYER_STACK` | `{ playerId, stack }` | 🆕 更新玩家后手筹码 |
+| `UPDATE_GAME_NOTES` | `{ notes }` | 🆕 更新复盘备注 |
+| `NAVIGATE_TO_STAGE` | `{ stage }` | 🆕 导航到指定阶段（用于节点流程导航） |
 
 ### 4.6 `hooks/useDragScroll.js`
 
@@ -260,16 +283,20 @@ export function parseAction(actionStr) → string[]
 ```
 <App>
   ├── <GameProvider>
-  │   ├── <HomeScreen />        (stage === 'home')
-  │   ├── <SetupScreen />       (stage === 'setup')
+  │   ├── <HomeScreen />              (stage === 'home')
+  │   ├── <SetupScreen />             (stage === 'setup', V1模式)
   │   │   └── <CardPicker />
-  │   ├── <PlayScreen />        (stage === 'play')
+  │   ├── <SetupScreenV2 />           (stage === 'setupV2', 🆕 V2模式)
+  │   │   ├── <HorizontalTableDiagram />
+  │   │   └── <CardPicker />
+  │   ├── <PlayScreen />              (stage === 'play')
+  │   │   ├── <StageNavigation />     (🆕 仅V2模式显示)
   │   │   ├── <SwipeCard />
   │   │   ├── <PlayerBadge />×N
   │   │   └── <CardPicker />
-  │   ├── <ResolutionScreen />  (stage === 'resolution')
+  │   ├── <ResolutionScreen />        (stage === 'resolution')
   │   │   └── <CardPicker />
-  │   └── <SummaryScreen />     (stage === 'summary')
+  │   └── <SummaryScreen />           (stage === 'summary')
 ```
 
 ---
@@ -285,7 +312,7 @@ export function parseAction(actionStr) → string[]
 ```js
 {
   id: number,
-  name: string,           // 位置名 or 自定义名
+  name: string,           // 位置名 or 自定义名 (V2模式: BTN/玩家1/玩家2.../Hero)
   folded: boolean,
   allIn: boolean,
   betThisRound: number,
@@ -293,6 +320,7 @@ export function parseAction(actionStr) → string[]
   actedThisRound: boolean,
   isHero: boolean,
   knownCards: [Card|null, Card|null],
+  stackSize: number,      // 🆕 V2模式：后手筹码
 }
 ```
 
@@ -317,6 +345,10 @@ export function parseAction(actionStr) → string[]
   communityCards: Card[],
   sbAmount: number,
   bbAmount: number,
+  // 🆕 V2 模式新增字段
+  isV2Mode: boolean,
+  gameNotes: string,
+  playerStacks: { [playerId]: number },
 }
 ```
 
@@ -324,6 +356,7 @@ export function parseAction(actionStr) → string[]
 
 ## 七、页面流转
 
+### V1 模式（传统流程）
 ```
 [HomeScreen] ──新建牌局──▶ [SetupScreen] ──进入桌台──▶ [PlayScreen]
                                                          │
@@ -339,6 +372,37 @@ export function parseAction(actionStr) → string[]
 
 [HomeScreen] ──加载存档──▶ [SummaryScreen] (只读模式)
 ```
+
+### 🆕 V2 模式（入池配置流程）
+```
+[HomeScreen] ──新模式入口──▶ [SetupScreenV2]
+                              │
+                     Step 1: 选择Flop入池人数
+                     Step 2: 选择Hero位置（桌面示意图）
+                     Step 3: 录入公共牌（可选）
+                     Step 4: 设定盲注
+                              │
+                              ▼
+                          [PlayScreen]（含节点导航）
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+              点击已完成节点      正常行动流程
+                    │                   │
+                    ▼                   ▼
+           返回对应阶段修改    [ResolutionScreen]
+                                        │
+                                        ▼
+                              [SummaryScreen]
+                           （含玩家编辑/备注功能）
+```
+
+**V2 模式特点：**
+- 玩家命名为 BTN、玩家1、玩家2...、Hero（而非位置名）
+- 不预设 SB/BB 玩家
+- 顶部节点导航：入池配置 → preflop → flop → turn → river
+- 支持点击已完成节点返回修改
+- 复盘页支持编辑玩家名称、后手筹码、添加备注
 
 ### 首页历史卡片摘要
 
