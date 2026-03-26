@@ -13,6 +13,8 @@ export default function CardPicker() {
 
   const isHero = pickingCardsTarget.startsWith('hero');
   const isReveal = pickingCardsTarget.startsWith('reveal');
+  // V2设置阶段的公共牌选择格式: community_0, community_1, ...
+  const isSetupCommunity = pickingCardsTarget.startsWith('community_');
   const requiredCount = pickingCardsTarget === 'flop' ? 3 : 1;
 
   const handleSelect = (rank, suit) => {
@@ -28,8 +30,12 @@ export default function CardPicker() {
       const playerIdx = parseInt(parts[1]);
       const cardPos = parseInt(parts[2]);
       dispatch({ type: 'REVEAL_PLAYER_CARD', payload: { playerIdx, cardPos, card } });
+    } else if (isSetupCommunity) {
+      // V2设置阶段的公共牌选择：直接添加到communityCards，不触发TRANSITION_STREET
+      const cardIndex = parseInt(pickingCardsTarget.split('_')[1]);
+      dispatch({ type: 'SET_SETUP_COMMUNITY_CARD', payload: { index: cardIndex, card } });
     } else {
-      // 公共牌选择
+      // 游戏进行中的公共牌选择（发牌过渡）
       const newTemp = [...tempCards, card];
       if (newTemp.length === requiredCount) {
         dispatch({ type: 'TRANSITION_STREET', payload: { cards: newTemp } });
@@ -47,7 +53,9 @@ export default function CardPicker() {
     ? '挑选我的底牌'
     : isReveal
       ? '补录玩家手牌'
-      : `请发公共牌 (${tempCards.length}/${requiredCount})`;
+      : isSetupCommunity
+        ? '选择公共牌'
+        : `请发公共牌 (${tempCards.length}/${requiredCount})`;
 
   return (
     <div className="absolute inset-0 bg-slate-900/90 z-[100] flex flex-col p-4 justify-end transition-all pb-10">
@@ -77,7 +85,7 @@ export default function CardPicker() {
             </div>
           ))}
         </div>
-        {(isHero || isReveal) && (
+        {(isHero || isReveal || isSetupCommunity) && (
           <button
             onClick={handleCancel}
             className="w-full py-4 bg-slate-100 text-slate-500 rounded-xl font-bold mt-4 shadow-inner"

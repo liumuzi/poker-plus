@@ -15,7 +15,7 @@ import StageNavigation from '../components/StageNavigation';
  */
 export default function SetupScreenV2() {
   const {
-    playerCount, heroIndex, heroCards, sbAmount, bbAmount, dispatch,
+    playerCount, heroIndex, heroCards, sbAmount, bbAmount, communityCards, dispatch,
   } = useGame();
 
   const [step, setStep] = useState(1); // 1: 人数, 2: Hero位置, 3: 公共牌, 4: 盲注
@@ -211,16 +211,38 @@ export default function SetupScreenV2() {
               </p>
               
               <div className="flex justify-center space-x-2 p-4 bg-emerald-900 rounded-xl">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
-                    className="w-12 h-16 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-lg cursor-pointer bg-emerald-800/50 hover:bg-emerald-700/50"
-                  >
-                    <span className="text-emerald-400">+</span>
-                  </div>
-                ))}
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const card = communityCards[i];
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
+                      className={`w-12 h-16 border-2 rounded-lg flex items-center justify-center text-lg cursor-pointer transition-all ${
+                        card 
+                          ? 'border-emerald-400 bg-white' 
+                          : 'border-dashed border-emerald-600 bg-emerald-800/50 hover:bg-emerald-700/50'
+                      }`}
+                    >
+                      {card ? (
+                        <CardDisplay card={card} />
+                      ) : (
+                        <span className="text-emerald-400">+</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+              
+              {communityCards.length > 0 && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => dispatch({ type: 'CLEAR_SETUP_COMMUNITY_CARDS' })}
+                    className="text-xs text-slate-400 underline hover:text-slate-600"
+                  >
+                    清除所有公共牌
+                  </button>
+                </div>
+              )}
               
               <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <p className="text-xs text-amber-700">

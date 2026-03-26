@@ -198,6 +198,27 @@ function gameReducer(state, action) {
         state.heroCards,
         state.playerNames
       );
+      
+      // 根据预设公共牌数量确定初始轮次
+      const communityCount = state.communityCards.length;
+      let initialRound = 0; // 默认preflop
+      let initialStageName = '翻前 (Pre-flop)';
+      let actionStage = 'preflop';
+      
+      if (communityCount >= 5) {
+        initialRound = 3; // river
+        initialStageName = '河牌 (River)';
+        actionStage = 'river';
+      } else if (communityCount >= 4) {
+        initialRound = 2; // turn
+        initialStageName = '转牌 (Turn)';
+        actionStage = 'turn';
+      } else if (communityCount >= 3) {
+        initialRound = 1; // flop
+        initialStageName = '翻牌 (Flop)';
+        actionStage = 'flop';
+      }
+      
       return {
         ...state,
         isViewingSave: false,
@@ -205,14 +226,15 @@ function gameReducer(state, action) {
         players: init.players,
         potSize: 0,
         highestBet: 0,
-        bettingRound: 0,
-        communityCards: [],
-        history: [{ isDivider: true, text: '--- 进入 翻前 (Pre-flop) ---', cards: [] }],
+        bettingRound: initialRound,
+        // 保留设置阶段选择的公共牌
+        communityCards: state.communityCards,
+        history: [{ isDivider: true, text: `--- 进入 ${initialStageName} ---`, cards: state.communityCards.slice(0, communityCount >= 3 ? 3 : 0) }],
         historySnapshots: [],
         winners: [],
         currentTurn: 0,
         stage: 'play',
-        actionStage: 'preflop',
+        actionStage: actionStage,
       };
     }
 
@@ -383,6 +405,30 @@ function gameReducer(state, action) {
       const newTemp = [...state.tempCards, action.payload.card];
       return { ...state, tempCards: newTemp };
     }
+
+    // V2设置阶段：设置公共牌（不触发TRANSITION_STREET）
+    case 'SET_SETUP_COMMUNITY_CARD': {
+      const { index, card } = action.payload;
+      const newCommunityCards = [...state.communityCards];
+      // 确保数组足够长
+      while (newCommunityCards.length <= index) {
+        newCommunityCards.push(null);
+      }
+      newCommunityCards[index] = card;
+      // 移除末尾的null值
+      while (newCommunityCards.length > 0 && newCommunityCards[newCommunityCards.length - 1] === null) {
+        newCommunityCards.pop();
+      }
+      return { 
+        ...state, 
+        communityCards: newCommunityCards,
+        pickingCardsTarget: null,
+      };
+    }
+
+    // V2设置阶段：清除所有公共牌
+    case 'CLEAR_SETUP_COMMUNITY_CARDS':
+      return { ...state, communityCards: [] };
 
     case 'TRANSITION_STREET': {
       const snapshot = createSnapshot(state);
