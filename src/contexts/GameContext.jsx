@@ -226,6 +226,7 @@ function gameReducer(state, action) {
     // V2: 更新玩家名称
     case 'UPDATE_PLAYER_NAME': {
       const newNames = { ...state.playerNames };
+      const oldName = state.players.find(p => p.id === action.payload.playerId)?.name;
       newNames[action.payload.playerId] = action.payload.name;
       
       // 如果游戏已经开始，也更新players数组中的名称
@@ -238,11 +239,23 @@ function gameReducer(state, action) {
           return p;
         });
       }
+
+      // 同步更新历史记录中的玩家名称
+      const updatedHistory = (oldName && oldName !== action.payload.name) ? state.history.map((h) => {
+        if (!h.isDivider && !h.isWinLog && h.player === oldName) {
+          return { ...h, player: action.payload.name };
+        }
+        if (h.isWinLog && typeof h.action === 'string' && h.action.includes(oldName)) {
+          return { ...h, action: h.action.split(oldName).join(action.payload.name) };
+        }
+        return h;
+      }) : state.history;
       
       return { 
         ...state, 
         playerNames: newNames,
         players: updatedPlayers,
+        history: updatedHistory,
       };
     }
 
@@ -289,12 +302,11 @@ function gameReducer(state, action) {
         };
       }
       
-      // 查找对应阶段的快照
-      // 这里简化处理：如果目标阶段小于当前阶段，需要回滚
-      if (targetRound < state.bettingRound && state.historySnapshots.length > 0) {
-        // 找到对应阶段的快照
+      // 查找对应阶段的快照（包括回到当前阶段的起点）
+      if (targetRound <= state.bettingRound && state.historySnapshots.length > 0) {
+        // 找到该阶段的第一个快照（即该阶段的起始状态）
         let snapshotIndex = -1;
-        for (let i = state.historySnapshots.length - 1; i >= 0; i--) {
+        for (let i = 0; i < state.historySnapshots.length; i++) {
           if (state.historySnapshots[i].bettingRound === targetRound) {
             snapshotIndex = i;
             break;
@@ -434,6 +446,8 @@ function gameReducer(state, action) {
         nextTurn = result.nextAction.nextTurn;
       }
 
+      const stageNames = ['preflop', 'flop', 'turn', 'river'];
+
       return {
         ...state,
         players: result.players,
@@ -446,6 +460,7 @@ function gameReducer(state, action) {
         tempCards: [],
         currentTurn: nextTurn,
         stage: nextStage,
+        actionStage: stageNames[result.bettingRound] || 'river',
       };
     }
 
@@ -503,6 +518,11 @@ function gameReducer(state, action) {
         winners: [],
         isViewingSave: true,
         stage: 'summary',
+        // V2 字段
+        isV2Mode: game.isV2Mode ?? false,
+        playerNames: game.playerNames ?? {},
+        playerStacks: game.playerStacks ?? {},
+        gameNotes: game.gameNotes ?? '',
       };
     }
 

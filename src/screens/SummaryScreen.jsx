@@ -141,7 +141,7 @@ export default function SummaryScreen() {
     saveGame({
       potSize,
       history,
-      players: players.filter((p) => p.isHero || (p.knownCards && p.knownCards.some((c) => c))),
+      players: isV2Mode ? players : players.filter((p) => p.isHero || (p.knownCards && p.knownCards.some((c) => c))),
       communityCards,
       sbAmount,
       bbAmount,
@@ -151,6 +151,7 @@ export default function SummaryScreen() {
       // V2新增字段
       isV2Mode,
       gameNotes: tempNotes,
+      playerNames: Object.fromEntries(players.map(p => [p.id, p.name])),
       playerStacks,
     });
     dispatch({ type: 'SET_STAGE', payload: { stage: 'home' } });
