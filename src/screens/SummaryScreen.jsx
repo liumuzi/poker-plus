@@ -332,6 +332,11 @@ export default function SummaryScreen() {
           )}
       </div>
 
+      {/* 提示文字：点击玩家名可改名 */}
+      <div className="px-4 py-1.5 text-[10px] text-slate-500 font-bold tracking-wider">
+        点击下方玩家头像可修改名称
+      </div>
+
       <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
@@ -391,15 +396,39 @@ export default function SummaryScreen() {
                       </div>
                     );
                   } else {
+                    const matchedPlayer = players.find((p) => p.name === act.player);
+                    const isEditingThis = matchedPlayer && inlineEditId === matchedPlayer.id;
                     return (
                       <div key={j} className="flex w-full justify-start items-start gap-1.5 pr-2 group transition-opacity">
-                        <div className="flex flex-col items-center shrink-0 w-8">
-                          <div className="w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-500 overflow-hidden flex items-center justify-center text-[9px] text-slate-200 font-black shadow-sm uppercase tracking-tighter">
+                        <div
+                          className="flex flex-col items-center shrink-0 w-8 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (matchedPlayer) handleInlineEditStart(matchedPlayer);
+                          }}
+                        >
+                          <div className={`w-7 h-7 rounded-full bg-slate-700 border-2 overflow-hidden flex items-center justify-center text-[9px] text-slate-200 font-black shadow-sm uppercase tracking-tighter ${isEditingThis ? 'border-blue-400' : 'border-slate-500'}`}>
                             {act.player.substring(0, 3)}
                           </div>
-                          <div className="bg-felt-900 text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">
-                            {act.player}
-                          </div>
+                          {isEditingThis ? (
+                            <input
+                              ref={inlineInputRef}
+                              type="text"
+                              value={inlineTempName}
+                              onChange={(e) => setInlineTempName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleInlineEditConfirm();
+                                if (e.key === 'Escape') handleInlineEditCancel();
+                              }}
+                              onBlur={handleInlineEditConfirm}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-16 bg-felt-700 border border-blue-400 rounded px-1 py-0.5 text-[8px] text-white text-center -mt-2 z-20 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          ) : (
+                            <div className="bg-felt-900 text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">
+                              {act.player}
+                            </div>
+                          )}
                         </div>
                         <div className="relative bg-white text-slate-900 px-1.5 py-1 rounded shadow-md border border-slate-200 flex flex-col items-center justify-center min-w-[36px] text-center z-10">
                           <div className="absolute top-2 -left-[4px] border-t-[4px] border-t-transparent border-r-[4px] border-r-white border-b-[4px] border-b-transparent"></div>
