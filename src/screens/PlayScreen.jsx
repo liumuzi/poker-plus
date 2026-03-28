@@ -29,7 +29,7 @@ export default function PlayScreen() {
   const {
     players, currentTurn, bettingRound, potSize,
     heroCards, communityCards, historySnapshots, isV2Mode,
-    pickingCardsTarget, presetCommunityCards, dispatch,
+    pickingCardsTarget, presetCommunityCards, savedFutureState, dispatch,
   } = useGame();
 
   // V2模式：当需要发公共牌且有预设牌时，自动过渡到下一条街
@@ -63,6 +63,13 @@ export default function PlayScreen() {
     return stageMap[bettingRound] || 'preflop';
   };
 
+  // 计算savedFutureState中可达的最远阶段
+  const getMaxReachableStage = () => {
+    if (!savedFutureState) return null;
+    const stageMap = ['preflop', 'flop', 'turn', 'river'];
+    return stageMap[savedFutureState.bettingRound] || 'river';
+  };
+
   const handleNavigateToStage = (stageName) => {
     dispatch({ type: 'NAVIGATE_TO_STAGE', payload: { stage: stageName } });
   };
@@ -75,6 +82,7 @@ export default function PlayScreen() {
           <StageNavigation
             currentStage={getCurrentStageName()}
             onNavigate={handleNavigateToStage}
+            maxReachableStage={getMaxReachableStage()}
           />
         </div>
       )}

@@ -4,8 +4,9 @@ import { useGame } from '../contexts/GameContext';
 /**
  * 节点流程图导航组件
  * 显示: 入池配置 → preflop → flop → turn → river
+ * 支持前进/后退导航，后退时保留前进数据
  */
-export default function StageNavigation({ currentStage, onNavigate }) {
+export default function StageNavigation({ currentStage, onNavigate, maxReachableStage }) {
   const stages = [
     { id: 'setup', label: '入池配置', shortLabel: '配置' },
     { id: 'preflop', label: '翻前', shortLabel: 'Pre' },
@@ -18,11 +19,18 @@ export default function StageNavigation({ currentStage, onNavigate }) {
     return stages.findIndex(s => s.id === currentStage);
   };
 
+  const getMaxReachableIndex = () => {
+    if (!maxReachableStage) return -1;
+    return stages.findIndex(s => s.id === maxReachableStage);
+  };
+
   const currentIndex = getCurrentStageIndex();
+  const maxReachableIndex = getMaxReachableIndex();
 
   const handleStageClick = (stage, index) => {
-    // 只能点击已完成的阶段或当前阶段
-    if (index <= currentIndex && onNavigate) {
+    // 可点击已完成的阶段、当前阶段、或savedFutureState中可达的前进阶段
+    const isClickable = index <= currentIndex || (maxReachableIndex >= 0 && index <= maxReachableIndex);
+    if (isClickable && onNavigate) {
       onNavigate(stage.id);
     }
   };
@@ -32,7 +40,8 @@ export default function StageNavigation({ currentStage, onNavigate }) {
       {stages.map((stage, index) => {
         const isCompleted = index < currentIndex;
         const isCurrent = index === currentIndex;
-        const isClickable = index <= currentIndex;
+        const isForwardReachable = !isCurrent && !isCompleted && maxReachableIndex >= 0 && index <= maxReachableIndex;
+        const isClickable = index <= currentIndex || isForwardReachable;
 
         return (
           <React.Fragment key={stage.id}>
@@ -50,10 +59,12 @@ export default function StageNavigation({ currentStage, onNavigate }) {
                     ? 'bg-blue-500 border-blue-400 text-white ring-2 ring-blue-300/50'
                     : isCompleted
                       ? 'bg-emerald-500 border-emerald-400 text-white'
-                      : 'bg-slate-700 border-slate-600 text-slate-400'
+                      : isForwardReachable
+                        ? 'bg-amber-500/80 border-amber-400 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-400'
                 }`}
               >
-                {isCompleted ? '✓' : index + 1}
+                {isCompleted ? '✓' : isForwardReachable ? '↩' : index + 1}
               </div>
               <span
                 className={`text-[9px] mt-0.5 font-bold ${
@@ -61,7 +72,9 @@ export default function StageNavigation({ currentStage, onNavigate }) {
                     ? 'text-blue-400'
                     : isCompleted
                       ? 'text-emerald-400'
-                      : 'text-slate-500'
+                      : isForwardReachable
+                        ? 'text-amber-400'
+                        : 'text-slate-500'
                 }`}
               >
                 {stage.shortLabel}
@@ -72,7 +85,11 @@ export default function StageNavigation({ currentStage, onNavigate }) {
             {index < stages.length - 1 && (
               <div
                 className={`w-4 h-0.5 mx-0.5 ${
-                  index < currentIndex ? 'bg-emerald-500' : 'bg-slate-600'
+                  index < currentIndex 
+                    ? 'bg-emerald-500' 
+                    : isForwardReachable || (index < maxReachableIndex && index >= currentIndex)
+                      ? 'bg-amber-500/50'
+                      : 'bg-slate-600'
                 }`}
               />
             )}

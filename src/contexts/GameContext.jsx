@@ -42,6 +42,8 @@ const initialState = {
   actionStage: 'setup',
   // V2 新增: 设置阶段预设的公共牌（与游戏中的communityCards分开存储）
   presetCommunityCards: [],
+  // V2 新增: 保存的前进状态（用于导航回退时保留后续数据）
+  savedFutureState: null,
 };
 
 function gameReducer(state, action) {
@@ -98,6 +100,7 @@ function gameReducer(state, action) {
         gameNotes: '',
         actionStage: 'setup',
         stage: 'setup',
+        savedFutureState: null,
       };
 
     // V2: 新建游戏进入V2模式
@@ -120,6 +123,7 @@ function gameReducer(state, action) {
         gameNotes: '',
         actionStage: 'setup',
         stage: 'setupV2',
+        savedFutureState: null,
       };
 
     case 'EXIT_TO_HOME':
@@ -139,6 +143,7 @@ function gameReducer(state, action) {
         pickingCardsTarget: null,
         tempCards: [],
         isViewingSave: false,
+        savedFutureState: null,
       };
 
     case 'REWRITE_FROM_CURRENT_HAND': {
@@ -193,6 +198,7 @@ function gameReducer(state, action) {
         currentTurn: 0,
         stage: 'play',
         actionStage: 'preflop',
+        savedFutureState: null,
       };
     }
 
@@ -220,6 +226,7 @@ function gameReducer(state, action) {
         currentTurn: 0,
         stage: 'play',
         actionStage: 'preflop',
+        savedFutureState: null,
       };
     }
 
@@ -291,10 +298,9 @@ function gameReducer(state, action) {
     case 'UPDATE_GAME_NOTES':
       return { ...state, gameNotes: action.payload.notes };
 
-    // V2: 导航到指定阶段
+    // V2: 导航到指定阶段（保留前进状态，避免误触丢失数据）
     case 'NAVIGATE_TO_STAGE': {
       const targetStage = action.payload.stage;
-      // 找到该阶段对应的历史快照
       const stageToRound = { 'preflop': 0, 'flop': 1, 'turn': 2, 'river': 3 };
       const targetRound = stageToRound[targetStage];
       
@@ -307,8 +313,71 @@ function gameReducer(state, action) {
         };
       }
       
-      // 查找对应阶段的快照（包括回到当前阶段的起点）
+      // 前进导航：从savedFutureState中恢复
+      if (targetRound > state.bettingRound && state.savedFutureState) {
+        const fs = state.savedFutureState;
+        
+        // 目标等于或超过保存的最远阶段 → 完整恢复
+        if (targetRound >= fs.bettingRound) {
+          return {
+            ...state,
+            players: fs.players,
+            currentTurn: fs.currentTurn,
+            history: fs.history,
+            communityCards: fs.communityCards,
+            bettingRound: fs.bettingRound,
+            highestBet: fs.highestBet,
+            potSize: fs.potSize,
+            historySnapshots: fs.historySnapshots,
+            stage: fs.stage,
+            actionStage: fs.actionStage,
+            pickingCardsTarget: fs.pickingCardsTarget,
+            winners: fs.winners || [],
+            savedFutureState: null,
+          };
+        }
+        
+        // 目标在当前和最远之间 → 从savedFutureState的快照中恢复
+        let snapshotIndex = -1;
+        for (let i = 0; i < fs.historySnapshots.length; i++) {
+          if (fs.historySnapshots[i].bettingRound === targetRound) {
+            snapshotIndex = i;
+            break;
+          }
+        }
+        
+        if (snapshotIndex >= 0) {
+          const snapshot = fs.historySnapshots[snapshotIndex];
+          return {
+            ...state,
+            ...restoreSnapshot(snapshot),
+            historySnapshots: fs.historySnapshots.slice(0, snapshotIndex),
+            stage: 'play',
+            actionStage: targetStage,
+            pickingCardsTarget: null,
+            savedFutureState: fs,
+          };
+        }
+      }
+      
+      // 后退导航（包括回到当前阶段的起点）
       if (targetRound <= state.bettingRound && state.historySnapshots.length > 0) {
+        // 保存当前完整状态，以便之后恢复（仅在没有已保存的前进状态时才保存）
+        const futureStateToSave = state.savedFutureState || {
+          players: JSON.parse(JSON.stringify(state.players)),
+          currentTurn: state.currentTurn,
+          history: JSON.parse(JSON.stringify(state.history)),
+          communityCards: [...state.communityCards],
+          bettingRound: state.bettingRound,
+          highestBet: state.highestBet,
+          potSize: state.potSize,
+          historySnapshots: JSON.parse(JSON.stringify(state.historySnapshots)),
+          stage: state.stage,
+          actionStage: state.actionStage,
+          pickingCardsTarget: state.pickingCardsTarget,
+          winners: [...(state.winners || [])],
+        };
+        
         // 找到该阶段的第一个快照（即该阶段的起始状态）
         let snapshotIndex = -1;
         for (let i = 0; i < state.historySnapshots.length; i++) {
@@ -327,6 +396,7 @@ function gameReducer(state, action) {
             stage: 'play',
             actionStage: targetStage,
             pickingCardsTarget: null,
+            savedFutureState: futureStateToSave,
           };
         }
       }
@@ -380,6 +450,7 @@ function gameReducer(state, action) {
         stage: nextStage,
         pickingCardsTarget: pickTarget,
         tempCards: pickTarget ? [] : state.tempCards,
+        savedFutureState: null,
       };
     }
 
@@ -466,6 +537,7 @@ function gameReducer(state, action) {
         currentTurn: nextTurn,
         stage: nextStage,
         actionStage: stageNames[result.bettingRound] || 'river',
+        savedFutureState: null,
       };
     }
 
