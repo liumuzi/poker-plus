@@ -246,7 +246,12 @@ function gameReducer(state, action) {
           return { ...h, player: action.payload.name };
         }
         if (h.isWinLog && typeof h.action === 'string' && h.action.includes(oldName)) {
-          return { ...h, action: h.action.split(oldName).join(action.payload.name) };
+          // 精确替换赢家日志中的玩家名称（格式: "Name1 & Name2 赢下底池: 100"）
+          const parts = h.action.split(' 赢下底池');
+          if (parts.length >= 2) {
+            const names = parts[0].split(' & ').map(n => n.trim() === oldName ? action.payload.name : n);
+            return { ...h, action: names.join(' & ') + ' 赢下底池' + parts.slice(1).join(' 赢下底池') };
+          }
         }
         return h;
       }) : state.history;
