@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { useSavedGames } from '../hooks/useSavedGames';
 import { useDragScroll } from '../hooks/useDragScroll';
@@ -20,6 +20,18 @@ export default function SummaryScreen() {
   const [tempPlayerName, setTempPlayerName] = useState('');
   const [tempPlayerStack, setTempPlayerStack] = useState('');
   const [tempNotes, setTempNotes] = useState(gameNotes || '');
+
+  // 玩家名称内联编辑状态
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineTempName, setInlineTempName] = useState('');
+  const inlineInputRef = useRef(null);
+
+  useEffect(() => {
+    if (inlineEditId !== null && inlineInputRef.current) {
+      inlineInputRef.current.focus();
+      inlineInputRef.current.select();
+    }
+  }, [inlineEditId]);
 
   // 将 history 分组为街道
   let rollingPot = 0;
@@ -130,6 +142,27 @@ export default function SummaryScreen() {
     setEditingPlayerId(null);
     setTempPlayerName('');
     setTempPlayerStack('');
+  };
+
+  // 内联编辑：点击非Hero玩家名称开始编辑
+  const handleInlineEditStart = (player) => {
+    if (player.isHero) return;
+    setInlineEditId(player.id);
+    setInlineTempName(player.name);
+  };
+
+  const handleInlineEditConfirm = () => {
+    const trimmed = inlineTempName.trim();
+    if (inlineEditId !== null && trimmed && trimmed !== players.find(p => p.id === inlineEditId)?.name) {
+      dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId: inlineEditId, name: trimmed } });
+    }
+    setInlineEditId(null);
+    setInlineTempName('');
+  };
+
+  const handleInlineEditCancel = () => {
+    setInlineEditId(null);
+    setInlineTempName('');
   };
 
   // V2新增：保存备注
