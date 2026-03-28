@@ -380,10 +380,9 @@ export function parseAction(actionStr) → string[]
 ```
 [HomeScreen] ──新模式入口──▶ [SetupScreenV2]
                               │
-                     Step 1: 选择Flop入池人数
-                     Step 2: 选择Hero位置（桌面示意图）
-                     Step 3: 录入公共牌（可选）
-                     Step 4: 设定盲注
+                     Step 1: 选择Flop入池人数 + Hero位置（桌面示意图）
+                     Step 2: 录入Hero底牌 + 公共牌（可选）
+                     Step 3: 设定盲注
                               │
                               ▼
                           [PlayScreen]（含节点导航）

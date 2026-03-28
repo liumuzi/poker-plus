@@ -22,6 +22,7 @@ export default function PlayerBadge({ player, isActive, onRevealCard, onNameChan
     if (!onNameChange || player.isHero) return;
     e.stopPropagation();
     longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
       setTempName(player.name);
       setEditing(true);
     }, 500);
