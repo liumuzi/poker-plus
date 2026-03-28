@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ROUND_NAMES } from '../constants/poker';
 import { useGame } from '../contexts/GameContext';
 import CardDisplay from '../components/CardDisplay';
@@ -7,11 +7,42 @@ import SwipeCard from '../components/SwipeCard';
 import PlayerBadge from '../components/PlayerBadge';
 import StageNavigation from '../components/StageNavigation';
 
+/**
+ * 获取指定街道的预设公共牌
+ * @returns 牌数组（flop=3张, turn/river=1张）或null表示没有预设
+ */
+function getPresetCardsForStreet(street, presetCommunityCards) {
+  const presetCards = presetCommunityCards || [];
+  if (street === 'flop' && presetCards[0] && presetCards[1] && presetCards[2]) {
+    return [presetCards[0], presetCards[1], presetCards[2]];
+  }
+  if (street === 'turn' && presetCards[3]) {
+    return [presetCards[3]];
+  }
+  if (street === 'river' && presetCards[4]) {
+    return [presetCards[4]];
+  }
+  return null;
+}
+
 export default function PlayScreen() {
   const {
     players, currentTurn, bettingRound, potSize,
-    heroCards, communityCards, historySnapshots, isV2Mode, dispatch,
+    heroCards, communityCards, historySnapshots, isV2Mode,
+    pickingCardsTarget, presetCommunityCards, dispatch,
   } = useGame();
+
+  // V2模式：当需要发公共牌且有预设牌时，自动过渡到下一条街
+  useEffect(() => {
+    if (!isV2Mode || !pickingCardsTarget) return;
+    const streetTargets = ['flop', 'turn', 'river'];
+    if (!streetTargets.includes(pickingCardsTarget)) return;
+
+    const cards = getPresetCardsForStreet(pickingCardsTarget, presetCommunityCards);
+    if (cards) {
+      dispatch({ type: 'TRANSITION_STREET', payload: { cards } });
+    }
+  }, [isV2Mode, pickingCardsTarget, presetCommunityCards, dispatch]);
 
   const activePlayer = players[currentTurn];
   if (!activePlayer) return null;

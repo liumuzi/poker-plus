@@ -15,7 +15,7 @@ import StageNavigation from '../components/StageNavigation';
  */
 export default function SetupScreenV2() {
   const {
-    playerCount, heroIndex, heroCards, sbAmount, bbAmount, communityCards, dispatch,
+    playerCount, heroIndex, heroCards, sbAmount, bbAmount, presetCommunityCards, dispatch,
   } = useGame();
 
   const [step, setStep] = useState(1); // 1: 人数, 2: Hero位置, 3: 公共牌, 4: 盲注
@@ -212,7 +212,7 @@ export default function SetupScreenV2() {
               
               <div className="flex justify-center space-x-2 p-4 bg-emerald-900 rounded-xl">
                 {[0, 1, 2, 3, 4].map((i) => {
-                  const card = communityCards[i];
+                  const card = (presetCommunityCards || [])[i] || null;
                   return (
                     <div
                       key={i}
@@ -233,7 +233,7 @@ export default function SetupScreenV2() {
                 })}
               </div>
               
-              {communityCards.length > 0 && (
+              {(presetCommunityCards || []).filter(Boolean).length > 0 && (
                 <div className="mt-4 text-center">
                   <button
                     onClick={() => dispatch({ type: 'CLEAR_SETUP_COMMUNITY_CARDS' })}

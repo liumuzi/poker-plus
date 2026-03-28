@@ -7,7 +7,7 @@ import { useGame } from '../contexts/GameContext';
  * 选牌弹窗（用于选择底牌、公共牌、补录亮牌）
  */
 export default function CardPicker() {
-  const { pickingCardsTarget, tempCards, heroCards, communityCards, players, dispatch } = useGame();
+  const { pickingCardsTarget, tempCards, heroCards, communityCards, presetCommunityCards, players, isV2Mode, dispatch } = useGame();
 
   if (!pickingCardsTarget) return null;
 
@@ -17,8 +17,23 @@ export default function CardPicker() {
   const isSetupCommunity = pickingCardsTarget.startsWith('community_');
   const requiredCount = pickingCardsTarget === 'flop' ? 3 : 1;
 
+  // V2模式：如果当前是发牌阶段且有预设牌，不显示选牌弹窗（由PlayScreen的useEffect自动处理）
+  const streetTargets = ['flop', 'turn', 'river'];
+  if (isV2Mode && streetTargets.includes(pickingCardsTarget)) {
+    const presetCards = presetCommunityCards || [];
+    const hasPreset = (
+      (pickingCardsTarget === 'flop' && presetCards[0] && presetCards[1] && presetCards[2]) ||
+      (pickingCardsTarget === 'turn' && presetCards[3]) ||
+      (pickingCardsTarget === 'river' && presetCards[4])
+    );
+    if (hasPreset) return null;
+  }
+
+  // 合并communityCards和presetCommunityCards用于已用牌检测
+  const allUsedCommunityCards = [...communityCards, ...(presetCommunityCards || []).filter(Boolean)];
+
   const handleSelect = (rank, suit) => {
-    if (isCardUsed(rank, suit.id, heroCards, communityCards, tempCards, players)) return;
+    if (isCardUsed(rank, suit.id, heroCards, allUsedCommunityCards, tempCards, players)) return;
 
     const card = { rank, suit: suit.id };
 
@@ -66,7 +81,7 @@ export default function CardPicker() {
             <div key={s.id} className="flex flex-col gap-1.5 items-center bg-slate-50 rounded-xl py-3 border border-slate-100">
               <div className={`text-2xl font-black mb-1 ${s.color}`}>{s.s}</div>
               {RANKS.map((r) => {
-                const disabled = isCardUsed(r, s.id, heroCards, communityCards, tempCards, players);
+                const disabled = isCardUsed(r, s.id, heroCards, allUsedCommunityCards, tempCards, players);
                 return (
                   <button
                     key={r}

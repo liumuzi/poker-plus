@@ -40,6 +40,8 @@ const initialState = {
   gameNotes: '',
   // V2 新增: 当前行动阶段（用于节点导航）
   actionStage: 'setup',
+  // V2 新增: 设置阶段预设的公共牌（与游戏中的communityCards分开存储）
+  presetCommunityCards: [],
 };
 
 function gameReducer(state, action) {
@@ -85,6 +87,7 @@ function gameReducer(state, action) {
         heroCards: [null, null],
         players: [],
         communityCards: [],
+        presetCommunityCards: [],
         tempCards: [],
         history: [],
         historySnapshots: [],
@@ -106,6 +109,7 @@ function gameReducer(state, action) {
         heroCards: [null, null],
         players: [],
         communityCards: [],
+        presetCommunityCards: [],
         tempCards: [],
         history: [],
         historySnapshots: [],
@@ -127,6 +131,7 @@ function gameReducer(state, action) {
         history: [],
         historySnapshots: [],
         communityCards: [],
+        presetCommunityCards: [],
         bettingRound: 0,
         highestBet: 0,
         potSize: 0,
@@ -154,6 +159,7 @@ function gameReducer(state, action) {
         history: [],
         historySnapshots: [],
         communityCards: [],
+        presetCommunityCards: [],
         bettingRound: 0,
         highestBet: 0,
         potSize: 0,
@@ -190,7 +196,7 @@ function gameReducer(state, action) {
       };
     }
 
-    // V2: 开始游戏，不预设盲注
+    // V2: 开始游戏，总是从翻前开始，预设公共牌在过渡时自动使用
     case 'START_GAME_V2': {
       const init = createInitialPlayersV2(
         state.playerCount,
@@ -198,27 +204,6 @@ function gameReducer(state, action) {
         state.heroCards,
         state.playerNames
       );
-      
-      // 根据预设公共牌数量确定初始轮次
-      const communityCount = state.communityCards.length;
-      let initialRound = 0; // 默认preflop
-      let initialStageName = '翻前 (Pre-flop)';
-      let actionStage = 'preflop';
-      
-      if (communityCount >= 5) {
-        initialRound = 3; // river
-        initialStageName = '河牌 (River)';
-        actionStage = 'river';
-      } else if (communityCount >= 4) {
-        initialRound = 2; // turn
-        initialStageName = '转牌 (Turn)';
-        actionStage = 'turn';
-      } else if (communityCount >= 3) {
-        initialRound = 1; // flop
-        initialStageName = '翻牌 (Flop)';
-        actionStage = 'flop';
-      }
-      
       return {
         ...state,
         isViewingSave: false,
@@ -226,15 +211,15 @@ function gameReducer(state, action) {
         players: init.players,
         potSize: 0,
         highestBet: 0,
-        bettingRound: initialRound,
-        // 保留设置阶段选择的公共牌
-        communityCards: state.communityCards,
-        history: [{ isDivider: true, text: `--- 进入 ${initialStageName} ---`, cards: state.communityCards.slice(0, communityCount >= 3 ? 3 : 0) }],
+        bettingRound: 0,
+        communityCards: [],
+        presetCommunityCards: state.presetCommunityCards,
+        history: [{ isDivider: true, text: '--- 进入 翻前 (Pre-flop) ---', cards: [] }],
         historySnapshots: [],
         winners: [],
         currentTurn: 0,
         stage: 'play',
-        actionStage: actionStage,
+        actionStage: 'preflop',
       };
     }
 
@@ -406,29 +391,25 @@ function gameReducer(state, action) {
       return { ...state, tempCards: newTemp };
     }
 
-    // V2设置阶段：设置公共牌（不触发TRANSITION_STREET）
+    // V2设置阶段：设置公共牌到预设数组（不触发TRANSITION_STREET）
     case 'SET_SETUP_COMMUNITY_CARD': {
       const { index, card } = action.payload;
-      const newCommunityCards = [...state.communityCards];
+      const newPresetCards = [...(state.presetCommunityCards || [])];
       // 确保数组足够长
-      while (newCommunityCards.length <= index) {
-        newCommunityCards.push(null);
+      while (newPresetCards.length <= index) {
+        newPresetCards.push(null);
       }
-      newCommunityCards[index] = card;
-      // 移除末尾的null值
-      while (newCommunityCards.length > 0 && newCommunityCards[newCommunityCards.length - 1] === null) {
-        newCommunityCards.pop();
-      }
+      newPresetCards[index] = card;
       return { 
         ...state, 
-        communityCards: newCommunityCards,
+        presetCommunityCards: newPresetCards,
         pickingCardsTarget: null,
       };
     }
 
-    // V2设置阶段：清除所有公共牌
+    // V2设置阶段：清除所有预设公共牌
     case 'CLEAR_SETUP_COMMUNITY_CARDS':
-      return { ...state, communityCards: [] };
+      return { ...state, presetCommunityCards: [] };
 
     case 'TRANSITION_STREET': {
       const snapshot = createSnapshot(state);

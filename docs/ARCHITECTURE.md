@@ -196,6 +196,7 @@ export function useGame()
     playerStacks,       // { [playerId]: number } - 玩家后手筹码
     gameNotes,          // string - 复盘备注
     actionStage,        // 'setup'|'preflop'|'flop'|'turn'|'river' - 当前行动阶段
+    presetCommunityCards, // Card[] - 设置阶段预设的公共牌（与communityCards分开存储，过渡时自动使用）
 
     // ---- 操作 ----
     dispatch,           // React dispatch function
@@ -213,7 +214,7 @@ export function useGame()
 | `SET_HERO_INDEX` | `{ index }` | 设置 Hero 位置 |
 | `SET_HERO_CARD` | `{ position, card }` | 设置 Hero 底牌 |
 | `START_GAME` | - | 初始化并进入牌局 (V1模式，预设SB/BB) |
-| `START_GAME_V2` | - | 🆕 初始化并进入牌局 (V2模式，不预设盲注) |
+| `START_GAME_V2` | - | 🆕 初始化并进入牌局 (V2模式，总是从翻前开始，预设公共牌在街道过渡时自动使用) |
 | `PLAYER_ACTION` | `{ action, amount }` | 执行玩家行动（含 Bet/Raise 区分） |
 | `UNDO` | - | 撤销上一步 |
 | `EXIT_TO_HOME` | - | 中途放弃当前牌局并返回主菜单 |
@@ -227,8 +228,8 @@ export function useGame()
 | `LOAD_SAVED_GAME` | `{ game }` | 加载存档 |
 | `RESET_FOR_NEW_GAME` | - | 重置所有状态 (V1模式) |
 | `RESET_FOR_NEW_GAME_V2` | - | 🆕 重置所有状态 (V2模式) |
-| `SET_SETUP_COMMUNITY_CARD` | `{ index, card }` | 🆕 设置设置阶段的公共牌（不触发TRANSITION_STREET） |
-| `CLEAR_SETUP_COMMUNITY_CARDS` | - | 🆕 清除设置阶段的所有公共牌 |
+| `SET_SETUP_COMMUNITY_CARD` | `{ index, card }` | 🆕 设置预设公共牌（存入presetCommunityCards，不触发TRANSITION_STREET） |
+| `CLEAR_SETUP_COMMUNITY_CARDS` | - | 🆕 清除所有预设公共牌 |
 | `UPDATE_PLAYER_NAME` | `{ playerId, name }` | 🆕 更新玩家名称 |
 | `UPDATE_PLAYER_STACK` | `{ playerId, stack }` | 🆕 更新玩家后手筹码 |
 | `UPDATE_GAME_NOTES` | `{ notes }` | 🆕 更新复盘备注 |
