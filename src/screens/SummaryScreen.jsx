@@ -334,7 +334,7 @@ export default function SummaryScreen() {
 
       {/* 提示文字：点击玩家名可改名 */}
       <div className="px-4 py-1.5 text-[10px] text-slate-500 font-bold tracking-wider">
-        点击下方玩家头像可修改名称
+        点击下方玩家名称可修改名称
       </div>
 
       <div
