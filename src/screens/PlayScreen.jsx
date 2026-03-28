@@ -57,6 +57,10 @@ export default function PlayScreen() {
     dispatch({ type: 'EXIT_TO_HOME' });
   };
 
+  const handleNameChange = (playerId, newName) => {
+    dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId, name: newName } });
+  };
+
   // 获取当前阶段名称用于导航
   const getCurrentStageName = () => {
     const stageMap = ['preflop', 'flop', 'turn', 'river'];
@@ -149,7 +153,7 @@ export default function PlayScreen() {
       {/* 底部玩家状态条 */}
       <div className="flex-none w-full p-4 pb-6 bg-slate-100 border-t border-slate-200 z-40">
         <div className="flex justify-between text-[11px] text-slate-500 mb-3 font-black tracking-wider uppercase px-1">
-          点击玩家可补录死牌/亮牌
+          长按玩家名可改名 · 点击补录亮牌
         </div>
         <div className="flex flex-wrap gap-2">
           {players.map((p) => (
@@ -158,6 +162,7 @@ export default function PlayScreen() {
               player={p}
               isActive={p.id === currentTurn}
               onRevealCard={handleRevealCard}
+              onNameChange={handleNameChange}
             />
           ))}
         </div>

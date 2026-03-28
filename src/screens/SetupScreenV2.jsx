@@ -4,21 +4,19 @@ import { useGame } from '../contexts/GameContext';
 import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import HorizontalTableDiagram from '../components/HorizontalTableDiagram';
-import StageNavigation from '../components/StageNavigation';
 
 /**
  * V2 配置界面 - 新的入池人数配置流程
- * 1. 选择flop入池人数 → 显示横向桌面图 → 自动设置BTN
- * 2. 选择Hero位置
- * 3. 录入公共牌（预留拍照识别）
- * 4. 设置盲注
+ * 1. 选择flop入池人数 → 显示横向桌面图 → 点击设置Hero位置
+ * 2. 录入Hero底牌 + 公共牌（预留拍照识别）
+ * 3. 设置盲注
  */
 export default function SetupScreenV2() {
   const {
     playerCount, heroIndex, heroCards, sbAmount, bbAmount, presetCommunityCards, dispatch,
   } = useGame();
 
-  const [step, setStep] = useState(1); // 1: 人数, 2: Hero位置, 3: 公共牌, 4: 盲注
+  const [step, setStep] = useState(1); // 1: 人数+Hero位置, 2: 底牌+公共牌, 3: 盲注
 
   const handleAbandonSetup = () => {
     if (!confirm('确认放弃当前配置并返回首页吗？')) return;
@@ -34,7 +32,7 @@ export default function SetupScreenV2() {
   };
 
   const handleNextStep = () => {
-    if (step < 4) {
+    if (step < 3) {
       setStep(step + 1);
     }
   };
@@ -52,9 +50,8 @@ export default function SetupScreenV2() {
   const canProceed = () => {
     switch (step) {
       case 1: return playerCount >= 2;
-      case 2: return heroIndex !== null && heroIndex !== undefined;
-      case 3: return true; // 公共牌选填
-      case 4: return sbAmount > 0 && bbAmount > 0;
+      case 2: return true; // 底牌和公共牌都选填
+      case 3: return sbAmount > 0 && bbAmount > 0;
       default: return false;
     }
   };
@@ -96,7 +93,7 @@ export default function SetupScreenV2() {
         
         {/* 步骤指示器 */}
         <div className="flex justify-center space-x-2">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3].map((s) => (
             <div
               key={s}
               className={`w-2 h-2 rounded-full transition-all ${
@@ -113,7 +110,7 @@ export default function SetupScreenV2() {
 
       {/* 主内容区 */}
       <div className="flex-1 p-5 overflow-y-auto">
-        {/* Step 1: 选择入池人数 */}
+        {/* Step 1: 选择入池人数 + Hero位置 */}
         {step === 1 && (
           <div className="space-y-6">
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
@@ -142,7 +139,7 @@ export default function SetupScreenV2() {
 
             {playerCount >= 2 && (
               <div className="bg-white rounded-[2rem] shadow-sm p-6">
-                <div className="text-xs font-bold text-slate-400 mb-4 uppercase">桌面预览</div>
+                <div className="text-xs font-bold text-slate-400 mb-4 uppercase">桌面预览 · 点击设置Hero位置</div>
                 <HorizontalTableDiagram
                   playerCount={playerCount}
                   heroPosition={heroIndex}
@@ -156,32 +153,14 @@ export default function SetupScreenV2() {
           </div>
         )}
 
-        {/* Step 2: 选择Hero位置 */}
+        {/* Step 2: Hero底牌 + 公共牌录入 */}
         {step === 2 && (
           <div className="space-y-6">
+            {/* Hero底牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 2</div>
-              <div className="text-lg font-black text-slate-800 mb-4">选择Hero位置</div>
-              <p className="text-sm text-slate-500 mb-6">
-                点击桌面示意图上的位置来设置你的位置
-              </p>
-              
-              <HorizontalTableDiagram
-                playerCount={playerCount}
-                heroPosition={heroIndex}
-                onSelectHero={handleSelectHeroPosition}
-              />
-              
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <div className="text-sm font-bold text-blue-800">
-                  当前Hero位置: {getPlayerDisplayName(heroIndex)}
-                </div>
-              </div>
-            </div>
-
-            {/* 底牌选择 */}
-            <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">Hero底牌 (选填)</div>
+              <div className="text-lg font-black text-slate-800 mb-4">录入手牌信息 (选填)</div>
+              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">Hero底牌</div>
               <div className="flex justify-center space-x-4">
                 <div
                   onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: 'hero1' } })}
@@ -197,16 +176,11 @@ export default function SetupScreenV2() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Step 3: 公共牌录入 */}
-        {step === 3 && (
-          <div className="space-y-6">
+            {/* 公共牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 3</div>
-              <div className="text-lg font-black text-slate-800 mb-4">录入公共牌 (选填)</div>
-              <p className="text-sm text-slate-500 mb-6">
+              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">公共牌 (选填)</div>
+              <p className="text-sm text-slate-500 mb-4">
                 如果已知公共牌，可以在这里提前录入。也可以在游戏过程中录入。
               </p>
               
@@ -253,11 +227,11 @@ export default function SetupScreenV2() {
           </div>
         )}
 
-        {/* Step 4: 盲注设置 */}
-        {step === 4 && (
+        {/* Step 3: 盲注设置 */}
+        {step === 3 && (
           <div className="space-y-6">
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 4</div>
+              <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 3</div>
               <div className="text-lg font-black text-slate-800 mb-4">设定盲注大小</div>
               
               <div className="flex space-x-4">
@@ -325,7 +299,7 @@ export default function SetupScreenV2() {
             </button>
           )}
           
-          {step < 4 ? (
+          {step < 3 ? (
             <button
               onClick={handleNextStep}
               disabled={!canProceed()}
