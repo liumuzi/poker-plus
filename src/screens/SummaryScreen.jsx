@@ -3,6 +3,7 @@ import { useGame } from '../contexts/GameContext';
 import { useSavedGames } from '../hooks/useSavedGames';
 import { useDragScroll } from '../hooks/useDragScroll';
 import { parseAction } from '../utils/formatting';
+import { groupHistoryByStreet, addCumulativeBoardCards, calculateHeroSummary } from '../utils/historyUtils';
 import CardDisplay from '../components/CardDisplay';
 
 export default function SummaryScreen() {
@@ -34,46 +35,11 @@ export default function SummaryScreen() {
   }, [inlineEditId]);
 
   // 将 history 分组为街道
-  let rollingPot = 0;
-  const streets = [];
-  let currentStreet = null;
-
-  history.forEach((h) => {
-    if (h.isDivider) {
-      if (!h.text.includes('结算')) {
-        if (currentStreet) streets.push(currentStreet);
-        let nName = '翻牌前';
-        if (h.text.includes('Flop')) nName = '翻牌';
-        if (h.text.includes('Turn')) nName = '转牌';
-        if (h.text.includes('River')) nName = '河牌';
-        currentStreet = { name: nName, startPot: rollingPot, actions: [], cards: h.cards || [] };
-      } else {
-        if (currentStreet) streets.push(currentStreet);
-        currentStreet = { name: '比牌', startPot: rollingPot, actions: [], cards: [] };
-      }
-    } else {
-      if (!currentStreet) {
-        currentStreet = { name: '盲注(前注)', startPot: 0, actions: [], cards: [] };
-      }
-      currentStreet.actions.push(h);
-      if (!h.isWinLog && typeof h.pot === 'number') {
-        rollingPot = h.pot;
-      }
-    }
-  });
-  if (currentStreet && (currentStreet.actions.length > 0 || currentStreet.name === '比牌')) {
-    streets.push(currentStreet);
-  }
+  const { streets } = groupHistoryByStreet(history);
 
   // 各街公共牌改为累计显示
   const streetsWithBoard = useMemo(() => {
-    const board = [];
-    return streets.map((street) => {
-      if (street.cards && street.cards.length > 0) {
-        board.push(...street.cards);
-      }
-      return { ...street, boardCards: [...board] };
-    });
+    return addCumulativeBoardCards(streets);
   }, [history]);
 
   const hero = players.find((p) => p.isHero);
@@ -82,28 +48,9 @@ export default function SummaryScreen() {
   const dealtCommunityCards = communityCards.length;
 
   const heroSummary = useMemo(() => {
-    if (!hero) return { wonShare: 0, net: 0, resultText: '未识别 Hero' };
-
-    let winnerCount = 0;
-    let heroWon = false;
-
-    if (!isViewingSave && winners.length > 0) {
-      winnerCount = winners.length;
-      heroWon = winners.includes(hero.id);
-    } else {
-      const winLog = history.find((h) => h.isWinLog && typeof h.action === 'string');
-      if (winLog?.action) {
-        const head = winLog.action.split(' 赢下底池')[0];
-        const names = head.split(' & ').map((s) => s.trim()).filter(Boolean);
-        winnerCount = names.length;
-        heroWon = names.includes(heroName);
-      }
-    }
-
-    const wonShare = heroWon && winnerCount > 0 ? potSize / winnerCount : 0;
-    const net = wonShare - heroInvested;
-    const resultText = net > 0 ? '盈利' : (net < 0 ? '亏损' : '持平');
-    return { wonShare, net, resultText };
+    return calculateHeroSummary({
+      hero, heroName, heroInvested, isViewingSave, winners, history, potSize,
+    });
   }, [hero, heroName, heroInvested, isViewingSave, winners, history, potSize]);
 
   const handleRewriteFromStart = () => {

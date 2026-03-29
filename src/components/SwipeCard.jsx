@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useGame } from '../contexts/GameContext';
+import { calculateBetSizes, calculateRaiseSizes } from '../utils/betCalculations';
 
 /**
  * 行动卡片：含滑动手势 + 加注面板
@@ -45,15 +46,8 @@ export default function SwipeCard({ player }) {
     setShowRaiseDrawer(false);
   };
 
-  const betOneThird = Math.max(1, Math.round(potSize * (1 / 3)));
-  const betOneHalf = Math.max(1, Math.round(potSize * (1 / 2)));
-  const betTwoThird = Math.max(1, Math.round(potSize * (2 / 3)));
-  const betFullPot = Math.max(1, potSize);
-
-  const raise2x = highestBet * 2;
-  const raise2_5x = Math.round(highestBet * 2.5);
-  const raise3x = highestBet * 3;
-  const raise4x = highestBet * 4;
+  const { betOneThird, betOneHalf, betTwoThird, betFullPot } = calculateBetSizes(potSize);
+  const { raise2x, raise2_5x, raise3x, raise4x } = calculateRaiseSizes(highestBet);
 
   return (
     <div className="flex flex-col items-center w-full h-[320px] justify-center relative mt-4">
