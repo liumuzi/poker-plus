@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 /**
  * 玩家信息编辑面板（SummaryScreen中的可折叠编辑区域）
  * 用于编辑玩家名称、筹码和复盘备注
+ * @param {Function} onSavePlayer - 保存玩家编辑回调 (playerId, name, stack)
+ * @param {Function} onSaveNotes - 保存备注回调 (notes)
  */
-export default function EditPanel({ players, playerStacks, tempNotes, onTempNotesChange, dispatch }) {
+export default function EditPanel({ players, playerStacks, tempNotes, onTempNotesChange, onSavePlayer, onSaveNotes }) {
   const [editingPlayerId, setEditingPlayerId] = useState(null);
   const [tempPlayerName, setTempPlayerName] = useState('');
   const [tempPlayerStack, setTempPlayerStack] = useState('');
@@ -17,18 +19,7 @@ export default function EditPanel({ players, playerStacks, tempNotes, onTempNote
 
   const handleSavePlayerEdit = () => {
     if (editingPlayerId !== null) {
-      if (tempPlayerName.trim()) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_NAME', 
-          payload: { playerId: editingPlayerId, name: tempPlayerName.trim() } 
-        });
-      }
-      if (tempPlayerStack) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_STACK', 
-          payload: { playerId: editingPlayerId, stack: Number(tempPlayerStack) } 
-        });
-      }
+      onSavePlayer(editingPlayerId, tempPlayerName.trim(), tempPlayerStack ? Number(tempPlayerStack) : null);
     }
     setEditingPlayerId(null);
     setTempPlayerName('');
@@ -42,7 +33,7 @@ export default function EditPanel({ players, playerStacks, tempNotes, onTempNote
   };
 
   const handleSaveNotes = () => {
-    dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes: tempNotes } });
+    onSaveNotes(tempNotes);
   };
 
   return (

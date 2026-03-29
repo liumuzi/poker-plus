@@ -153,7 +153,11 @@ export default function SummaryScreen() {
               playerStacks={playerStacks}
               tempNotes={tempNotes}
               onTempNotesChange={setTempNotes}
-              dispatch={dispatch}
+              onSavePlayer={(playerId, name, stack) => {
+                if (name) dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId, name } });
+                if (stack !== null) dispatch({ type: 'UPDATE_PLAYER_STACK', payload: { playerId, stack } });
+              }}
+              onSaveNotes={(notes) => dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes } })}
             />
           )}
       </div>
