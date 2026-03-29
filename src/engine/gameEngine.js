@@ -1,4 +1,5 @@
 import { getPositions, ROUND_NAMES } from '../constants/poker';
+import { getPlayerDisplayName } from '../utils/playerNames';
 
 /**
  * 创建初始玩家列表并处理盲注
@@ -50,14 +51,7 @@ export function createInitialPlayersV2(playerCount, heroIndex, heroCards, custom
   
   const players = [];
   for (let idx = 0; idx < safeCount; idx++) {
-    let defaultName;
-    if (idx === 0) {
-      defaultName = 'BTN';
-    } else if (idx === heroIndex) {
-      defaultName = 'Hero';
-    } else {
-      defaultName = `玩家${idx}`;
-    }
+    const defaultName = getPlayerDisplayName(idx, heroIndex);
     
     players.push({
       id: idx,

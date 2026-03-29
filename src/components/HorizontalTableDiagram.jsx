@@ -1,4 +1,5 @@
 import React from 'react';
+import { getPlayerDisplayName } from '../utils/playerNames';
 
 /**
  * 横向桌面示意图组件
@@ -14,11 +15,8 @@ export default function HorizontalTableDiagram({
   const generatePositions = (count) => {
     const positions = [];
     for (let i = 0; i < count; i++) {
-      if (i === 0) {
-        positions.push({ id: i, label: 'BTN', displayName: 'BTN' });
-      } else {
-        positions.push({ id: i, label: `玩家${i}`, displayName: `玩家${i}` });
-      }
+      const displayName = getPlayerDisplayName(i, heroPosition);
+      positions.push({ id: i, label: displayName, displayName });
     }
     return positions;
   };

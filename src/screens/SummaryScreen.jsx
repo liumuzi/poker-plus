@@ -1,9 +1,12 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { useSavedGames } from '../hooks/useSavedGames';
 import { useDragScroll } from '../hooks/useDragScroll';
-import { parseAction } from '../utils/formatting';
+import { useInlineEdit } from '../hooks/useInlineEdit';
+import { groupHistoryByStreet, addCumulativeBoardCards, calculateHeroSummary } from '../utils/historyUtils';
 import CardDisplay from '../components/CardDisplay';
+import EditPanel from '../components/summary/EditPanel';
+import StreetColumn from '../components/summary/StreetColumn';
 
 export default function SummaryScreen() {
   const {
@@ -16,64 +19,22 @@ export default function SummaryScreen() {
   
   // V2新增：编辑模式状态
   const [showEditPanel, setShowEditPanel] = useState(false);
-  const [editingPlayerId, setEditingPlayerId] = useState(null);
-  const [tempPlayerName, setTempPlayerName] = useState('');
-  const [tempPlayerStack, setTempPlayerStack] = useState('');
   const [tempNotes, setTempNotes] = useState(gameNotes || '');
 
-  // 玩家名称内联编辑状态
-  const [inlineEditId, setInlineEditId] = useState(null);
-  const [inlineTempName, setInlineTempName] = useState('');
-  const inlineInputRef = useRef(null);
-
-  useEffect(() => {
-    if (inlineEditId !== null && inlineInputRef.current) {
-      inlineInputRef.current.focus();
-      inlineInputRef.current.select();
-    }
-  }, [inlineEditId]);
-
-  // 将 history 分组为街道
-  let rollingPot = 0;
-  const streets = [];
-  let currentStreet = null;
-
-  history.forEach((h) => {
-    if (h.isDivider) {
-      if (!h.text.includes('结算')) {
-        if (currentStreet) streets.push(currentStreet);
-        let nName = '翻牌前';
-        if (h.text.includes('Flop')) nName = '翻牌';
-        if (h.text.includes('Turn')) nName = '转牌';
-        if (h.text.includes('River')) nName = '河牌';
-        currentStreet = { name: nName, startPot: rollingPot, actions: [], cards: h.cards || [] };
-      } else {
-        if (currentStreet) streets.push(currentStreet);
-        currentStreet = { name: '比牌', startPot: rollingPot, actions: [], cards: [] };
-      }
-    } else {
-      if (!currentStreet) {
-        currentStreet = { name: '盲注(前注)', startPot: 0, actions: [], cards: [] };
-      }
-      currentStreet.actions.push(h);
-      if (!h.isWinLog && typeof h.pot === 'number') {
-        rollingPot = h.pot;
-      }
+  // 玩家名称内联编辑（使用共享 hook）
+  const inlineEdit = useInlineEdit((id, newName) => {
+    const currentName = players.find(p => p.id === id)?.name;
+    if (newName !== currentName) {
+      dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId: id, name: newName } });
     }
   });
-  if (currentStreet && (currentStreet.actions.length > 0 || currentStreet.name === '比牌')) {
-    streets.push(currentStreet);
-  }
+
+  // 将 history 分组为街道
+  const { streets } = groupHistoryByStreet(history);
 
   // 各街公共牌改为累计显示
   const streetsWithBoard = useMemo(() => {
-    const board = [];
-    return streets.map((street) => {
-      if (street.cards && street.cards.length > 0) {
-        board.push(...street.cards);
-      }
-      return { ...street, boardCards: [...board] };
-    });
+    return addCumulativeBoardCards(streets);
   }, [history]);
 
   const hero = players.find((p) => p.isHero);
@@ -82,28 +43,9 @@ export default function SummaryScreen() {
   const dealtCommunityCards = communityCards.length;
 
   const heroSummary = useMemo(() => {
-    if (!hero) return { wonShare: 0, net: 0, resultText: '未识别 Hero' };
-
-    let winnerCount = 0;
-    let heroWon = false;
-
-    if (!isViewingSave && winners.length > 0) {
-      winnerCount = winners.length;
-      heroWon = winners.includes(hero.id);
-    } else {
-      const winLog = history.find((h) => h.isWinLog && typeof h.action === 'string');
-      if (winLog?.action) {
-        const head = winLog.action.split(' 赢下底池')[0];
-        const names = head.split(' & ').map((s) => s.trim()).filter(Boolean);
-        winnerCount = names.length;
-        heroWon = names.includes(heroName);
-      }
-    }
-
-    const wonShare = heroWon && winnerCount > 0 ? potSize / winnerCount : 0;
-    const net = wonShare - heroInvested;
-    const resultText = net > 0 ? '盈利' : (net < 0 ? '亏损' : '持平');
-    return { wonShare, net, resultText };
+    return calculateHeroSummary({
+      hero, heroName, heroInvested, isViewingSave, winners, history, potSize,
+    });
   }, [hero, heroName, heroInvested, isViewingSave, winners, history, potSize]);
 
   const handleRewriteFromStart = () => {
@@ -111,63 +53,10 @@ export default function SummaryScreen() {
     dispatch({ type: 'REWRITE_FROM_CURRENT_HAND' });
   };
 
-  // V2新增：玩家名称编辑功能
-  const handleStartEditPlayer = (player) => {
-    setEditingPlayerId(player.id);
-    setTempPlayerName(player.name);
-    setTempPlayerStack(player.stackSize ?? playerStacks?.[player.id] ?? '');
-  };
-
-  const handleSavePlayerEdit = () => {
-    if (editingPlayerId !== null) {
-      if (tempPlayerName.trim()) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_NAME', 
-          payload: { playerId: editingPlayerId, name: tempPlayerName.trim() } 
-        });
-      }
-      if (tempPlayerStack) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_STACK', 
-          payload: { playerId: editingPlayerId, stack: Number(tempPlayerStack) } 
-        });
-      }
-    }
-    setEditingPlayerId(null);
-    setTempPlayerName('');
-    setTempPlayerStack('');
-  };
-
-  const handleCancelPlayerEdit = () => {
-    setEditingPlayerId(null);
-    setTempPlayerName('');
-    setTempPlayerStack('');
-  };
-
   // 内联编辑：点击非Hero玩家名称开始编辑
   const handleInlineEditStart = (player) => {
     if (player.isHero) return;
-    setInlineEditId(player.id);
-    setInlineTempName(player.name);
-  };
-
-  const handleInlineEditConfirm = () => {
-    const trimmed = inlineTempName.trim();
-    if (inlineEditId !== null && trimmed && trimmed !== players.find(p => p.id === inlineEditId)?.name) {
-      dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId: inlineEditId, name: trimmed } });
-    }
-    setInlineEditId(null);
-    setInlineTempName('');
-  };
-
-  const handleInlineEditCancel = () => {
-    setInlineEditId(null);
-    setInlineTempName('');
-  };
-
-  // V2新增：保存备注
-  const handleSaveNotes = () => {
-    dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes: tempNotes } });
+    inlineEdit.startEdit(player.id, player.name);
   };
 
   const handleSave = () => {
@@ -259,76 +148,17 @@ export default function SummaryScreen() {
 
           {/* V2新增：编辑面板 */}
           {showEditPanel && (
-            <div className="mt-3 bg-felt-600 rounded-xl p-3 border border-felt-400">
-              <h4 className="text-xs font-bold text-slate-300 mb-3 uppercase tracking-wider">玩家信息编辑</h4>
-              
-              {/* 玩家列表 */}
-              <div className="space-y-2 mb-4">
-                {players.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between bg-felt-500 rounded-lg p-2">
-                    {editingPlayerId === p.id ? (
-                      <div className="flex-1 flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={tempPlayerName}
-                          onChange={(e) => setTempPlayerName(e.target.value)}
-                          placeholder="玩家名称"
-                          className="flex-1 bg-felt-700 border border-felt-300 rounded px-2 py-1 text-xs text-white"
-                        />
-                        <input
-                          type="number"
-                          value={tempPlayerStack}
-                          onChange={(e) => setTempPlayerStack(e.target.value)}
-                          placeholder="后手筹码"
-                          className="w-20 bg-felt-700 border border-felt-300 rounded px-2 py-1 text-xs text-white"
-                        />
-                        <button
-                          onClick={handleSavePlayerEdit}
-                          className="text-emerald-400 text-xs px-2 py-1 bg-emerald-500/20 rounded"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={handleCancelPlayerEdit}
-                          className="text-red-400 text-xs px-2 py-1 bg-red-500/20 rounded"
-                        >
-                          ✗
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs font-bold ${p.isHero ? 'text-amber-400' : 'text-slate-300'}`}>
-                            {p.name} {p.isHero && '👑'}
-                          </span>
-                        {(p.stackSize != null || playerStacks?.[p.id] != null) && (
-                            <span className="text-[10px] text-slate-500">
-                              后手: {p.stackSize ?? playerStacks?.[p.id] ?? 0}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleStartEditPlayer(p)}
-                          className="text-blue-400 text-xs px-2 py-1 bg-blue-500/20 rounded hover:bg-blue-500/30"
-                        >
-                          编辑
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* 备注区域 */}
-              <h4 className="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">复盘备注</h4>
-              <textarea
-                value={tempNotes}
-                onChange={(e) => setTempNotes(e.target.value)}
-                onBlur={handleSaveNotes}
-                placeholder="在这里记录你的复盘思考、反思或注意事项..."
-                className="w-full bg-felt-700 border border-felt-300 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 min-h-[80px] resize-none"
-              />
-            </div>
+            <EditPanel
+              players={players}
+              playerStacks={playerStacks}
+              tempNotes={tempNotes}
+              onTempNotesChange={setTempNotes}
+              onSavePlayer={(playerId, name, stack) => {
+                if (name) dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId, name } });
+                if (stack !== null) dispatch({ type: 'UPDATE_PLAYER_STACK', payload: { playerId, stack } });
+              }}
+              onSaveNotes={(notes) => dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes } })}
+            />
           )}
       </div>
 
@@ -347,102 +177,20 @@ export default function SummaryScreen() {
         className="flex-1 overflow-x-auto overflow-y-hidden w-full no-scrollbar pb-[100px]"
       >
         <div className="flex min-w-max h-full border-t border-b border-felt-400 bg-felt-500">
-          {streetsWithBoard.map((street, idx) => {
-            const numCards = street.boardCards ? street.boardCards.length : 0;
-            const colWidth = numCards === 5 ? 'w-[160px]' : numCards === 4 ? 'w-[130px]' : 'w-[110px]';
-            
-            return (
-              <div key={idx} className={`${colWidth} flex flex-col border-r border-felt-300 shrink-0 transition-all`}>
-                <div className="py-2 text-center bg-felt-800 border-b border-felt-300 flex flex-col items-center justify-center min-h-[46px]">
-                  <div className="text-[10px] text-felt-muted font-bold">{street.name}</div>
-                {street.startPot > 0 && (
-                  <div className="text-amber-400 font-black text-[11px] leading-none mt-0.5">${street.startPot}</div>
-                )}
-              </div>
-
-              {street.boardCards && street.boardCards.length > 0 && (
-                <div className="flex justify-center items-center py-1.5 bg-felt-600 border-b border-felt-300/70 min-h-[36px]">
-                  <div className="flex scale-[0.6] origin-center -m-4">
-                    {street.boardCards.map((c, j) => <CardDisplay key={j} card={c} />)}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex-1 px-1.5 py-3 overflow-y-auto space-y-4 no-scrollbar">
-                {street.actions.map((act, j) => {
-                  if (act.isWinLog) {
-                    return (
-                      <div key={j} className="bg-chip-gold rounded-lg p-2 text-center shadow-md text-black mt-2">
-                        <div className="font-extrabold text-[10px] leading-snug">{act.action}</div>
-                      </div>
-                    );
-                  }
-
-                  const pActionArray = parseAction(act.action);
-                  const isHeroAction = act.isHero === true || (act.isHero !== false && players.some((p) => p.name === act.player && p.isHero));
-
-                  if (isHeroAction) {
-                    return (
-                      <div key={j} className="flex w-full justify-end items-start gap-1.5 pl-2 group transition-opacity">
-                        <div className="relative bg-chip-gold text-black px-1.5 py-1 rounded shadow-md border border-chip-gold-dark flex flex-col items-center justify-center min-w-[36px] text-center z-10">
-                          {pActionArray.map((p, i) => <div key={i} className="text-[9px] font-extrabold leading-tight">{p}</div>)}
-                          <div className="absolute top-2 -right-[4px] border-t-[4px] border-t-transparent border-l-[4px] border-l-chip-gold border-b-[4px] border-b-transparent"></div>
-                          <div className="absolute top-2 -right-[5px] border-t-[4px] border-t-transparent border-l-[4px] border-l-chip-gold-dark border-b-[4px] border-b-transparent -z-10"></div>
-                        </div>
-                        <div className="flex flex-col items-center shrink-0 w-8">
-                          <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-amber-500 overflow-hidden flex items-center justify-center text-xs shadow-sm">👑</div>
-                          <div className="bg-felt-900 text-amber-500/90 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-amber-600/50 font-bold max-w-full truncate">Hero</div>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    const matchedPlayer = players.find((p) => p.name === act.player);
-                    const isEditingThis = matchedPlayer && inlineEditId === matchedPlayer.id;
-                    return (
-                      <div key={j} className="flex w-full justify-start items-start gap-1.5 pr-2 group transition-opacity">
-                        <div
-                          className="flex flex-col items-center shrink-0 w-8 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (matchedPlayer) handleInlineEditStart(matchedPlayer);
-                          }}
-                        >
-                          <div className={`w-7 h-7 rounded-full bg-slate-700 border-2 overflow-hidden flex items-center justify-center text-[9px] text-slate-200 font-black shadow-sm uppercase tracking-tighter ${isEditingThis ? 'border-blue-400' : 'border-slate-500'}`}>
-                            {act.player.substring(0, 3)}
-                          </div>
-                          {isEditingThis ? (
-                            <input
-                              ref={inlineInputRef}
-                              type="text"
-                              value={inlineTempName}
-                              onChange={(e) => setInlineTempName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleInlineEditConfirm();
-                                if (e.key === 'Escape') handleInlineEditCancel();
-                              }}
-                              onBlur={handleInlineEditConfirm}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-16 bg-felt-700 border border-blue-400 rounded px-1 py-0.5 text-[8px] text-white text-center -mt-2 z-20 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          ) : (
-                            <div className="bg-felt-900 text-slate-300 text-[7px] px-1 rounded-sm -mt-2 z-10 border border-slate-600 font-bold max-w-full truncate">
-                              {act.player}
-                            </div>
-                          )}
-                        </div>
-                        <div className="relative bg-white text-slate-900 px-1.5 py-1 rounded shadow-md border border-slate-200 flex flex-col items-center justify-center min-w-[36px] text-center z-10">
-                          <div className="absolute top-2 -left-[4px] border-t-[4px] border-t-transparent border-r-[4px] border-r-white border-b-[4px] border-b-transparent"></div>
-                          <div className="absolute top-2 -left-[5px] border-t-[4px] border-t-transparent border-r-[4px] border-r-slate-200 border-b-[4px] border-b-transparent -z-10"></div>
-                          {pActionArray.map((p, i) => <div key={i} className="text-[9px] font-extrabold leading-tight">{p}</div>)}
-                        </div>
-                      </div>
-                    );
-                  }
-                })}
-              </div>
-            </div>
-          );
-        })}
+          {streetsWithBoard.map((street, idx) => (
+            <StreetColumn
+              key={idx}
+              street={street}
+              players={players}
+              inlineEditId={inlineEdit.editingId}
+              inlineTempName={inlineEdit.tempValue}
+              onInlineTempNameChange={inlineEdit.setTempValue}
+              onInlineEditStart={handleInlineEditStart}
+              onInlineEditConfirm={inlineEdit.confirmEdit}
+              onInlineEditCancel={inlineEdit.cancelEdit}
+              inlineInputRef={inlineEdit.inputRef}
+            />
+          ))}
         </div>
       </div>
 

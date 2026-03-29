@@ -4,6 +4,7 @@ import { useGame } from '../contexts/GameContext';
 import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import HorizontalTableDiagram from '../components/HorizontalTableDiagram';
+import { getPlayerDisplayName, generatePlayerNames } from '../utils/playerNames';
 
 /**
  * V2 配置界面 - 新的入池人数配置流程
@@ -53,26 +54,6 @@ export default function SetupScreenV2() {
       case 2: return true; // 底牌和公共牌都选填
       case 3: return sbAmount > 0 && bbAmount > 0;
       default: return false;
-    }
-  };
-
-  // 生成玩家名称（玩家1, 玩家2... Hero）
-  const generatePlayerNames = () => {
-    const names = [];
-    for (let i = 0; i < playerCount; i++) {
-      names.push(getPlayerDisplayName(i));
-    }
-    return names;
-  };
-
-  // 获取单个玩家显示名称（提取共用逻辑）
-  const getPlayerDisplayName = (index) => {
-    if (index === heroIndex) {
-      return 'Hero';
-    } else if (index === 0) {
-      return 'BTN';
-    } else {
-      return `玩家${index}`;
     }
   };
 
@@ -269,7 +250,7 @@ export default function SetupScreenV2() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100">
                   <span className="text-slate-500">Hero位置</span>
-                  <span className="font-bold text-slate-800">{getPlayerDisplayName(heroIndex)}</span>
+                  <span className="font-bold text-slate-800">{getPlayerDisplayName(heroIndex, heroIndex)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100">
                   <span className="text-slate-500">盲注</span>
@@ -278,7 +259,7 @@ export default function SetupScreenV2() {
                 <div className="flex justify-between py-2">
                   <span className="text-slate-500">玩家</span>
                   <span className="font-bold text-slate-800 text-xs">
-                    {generatePlayerNames().join(', ')}
+                    {generatePlayerNames(playerCount, heroIndex).join(', ')}
                   </span>
                 </div>
               </div>

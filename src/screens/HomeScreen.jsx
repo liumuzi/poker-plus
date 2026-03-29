@@ -2,42 +2,12 @@ import React from 'react';
 import { Play } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { useSavedGames } from '../hooks/useSavedGames';
-import { SUITS } from '../constants/poker';
+import { getGameSummary } from '../utils/historyUtils';
+import { formatCompactCard } from '../utils/formatting';
 
 export default function HomeScreen() {
   const { dispatch } = useGame();
   const { savedGames, deleteGame } = useSavedGames();
-
-  const getGameSummary = (game) => {
-    const hero = game.players?.find((p) => p.isHero);
-    const heroName = hero?.name || '';
-    const heroInvested = Number(hero?.totalInvested || 0);
-    const community = Array.isArray(game.communityCards) ? game.communityCards : [];
-
-    const winLog = game.history?.find((h) => h.isWinLog && typeof h.action === 'string');
-    let winnerNames = [];
-    if (winLog?.action) {
-      const head = winLog.action.split(' 赢下底池')[0];
-      winnerNames = head.split(' & ').map((s) => s.trim()).filter(Boolean);
-    }
-
-    const heroWon = winnerNames.includes(heroName);
-    const winnerCount = winnerNames.length;
-    const wonShare = heroWon && winnerCount > 0 ? Number(game.potSize || 0) / winnerCount : 0;
-    const net = wonShare - heroInvested;
-    const heroCards = game.heroCards || (hero && hero.knownCards) || [];
-
-    return {
-      net,
-      community,
-      heroCards,
-    };
-  };
-
-  const formatCompactCard = (card) => {
-    const suit = SUITS.find((s) => s.id === card?.suit)?.s || '?';
-    return `${suit}${card?.rank || '?'}`;
-  };
 
   const handleNewGame = () => {
     dispatch({ type: 'RESET_FOR_NEW_GAME' });
