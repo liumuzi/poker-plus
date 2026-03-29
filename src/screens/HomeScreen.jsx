@@ -43,6 +43,10 @@ export default function HomeScreen() {
     dispatch({ type: 'RESET_FOR_NEW_GAME' });
   };
 
+  const handleNewGameV2 = () => {
+    dispatch({ type: 'RESET_FOR_NEW_GAME_V2' });
+  };
+
   const handleLoadSave = (game) => {
     dispatch({ type: 'LOAD_SAVED_GAME', payload: { game } });
   };
@@ -103,10 +107,17 @@ export default function HomeScreen() {
         </p>
         <button
           onClick={handleNewGame}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-blue-500/50 active:scale-95 transition-transform mb-4"
+          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-blue-500/50 active:scale-95 transition-transform mb-3"
         >
           <Play size={20} className="fill-current" />
           <span>新建复盘牌局</span>
+        </button>
+        <button
+          onClick={handleNewGameV2}
+          className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-full font-bold shadow-lg shadow-emerald-500/50 active:scale-95 transition-transform mb-4 text-sm"
+        >
+          <Play size={16} className="fill-current" />
+          <span>新模式：入池人数配置</span>
         </button>
         <button
           onClick={handleLoadTestCase}

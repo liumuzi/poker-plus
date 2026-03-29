@@ -1,16 +1,48 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ROUND_NAMES } from '../constants/poker';
 import { useGame } from '../contexts/GameContext';
 import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import SwipeCard from '../components/SwipeCard';
 import PlayerBadge from '../components/PlayerBadge';
+import StageNavigation from '../components/StageNavigation';
+
+/**
+ * 获取指定街道的预设公共牌
+ * @returns 牌数组（flop=3张, turn/river=1张）或null表示没有预设
+ */
+function getPresetCardsForStreet(street, presetCommunityCards) {
+  const presetCards = presetCommunityCards || [];
+  if (street === 'flop' && presetCards[0] && presetCards[1] && presetCards[2]) {
+    return [presetCards[0], presetCards[1], presetCards[2]];
+  }
+  if (street === 'turn' && presetCards[3]) {
+    return [presetCards[3]];
+  }
+  if (street === 'river' && presetCards[4]) {
+    return [presetCards[4]];
+  }
+  return null;
+}
 
 export default function PlayScreen() {
   const {
     players, currentTurn, bettingRound, potSize,
-    heroCards, communityCards, historySnapshots, dispatch,
+    heroCards, communityCards, historySnapshots, isV2Mode,
+    pickingCardsTarget, presetCommunityCards, savedFutureState, dispatch,
   } = useGame();
+
+  // V2模式：当需要发公共牌且有预设牌时，自动过渡到下一条街
+  useEffect(() => {
+    if (!isV2Mode || !pickingCardsTarget) return;
+    const streetTargets = ['flop', 'turn', 'river'];
+    if (!streetTargets.includes(pickingCardsTarget)) return;
+
+    const cards = getPresetCardsForStreet(pickingCardsTarget, presetCommunityCards);
+    if (cards) {
+      dispatch({ type: 'TRANSITION_STREET', payload: { cards } });
+    }
+  }, [isV2Mode, pickingCardsTarget, presetCommunityCards, dispatch]);
 
   const activePlayer = players[currentTurn];
   if (!activePlayer) return null;
@@ -25,13 +57,45 @@ export default function PlayScreen() {
     dispatch({ type: 'EXIT_TO_HOME' });
   };
 
+  const handleNameChange = (playerId, newName) => {
+    dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId, name: newName } });
+  };
+
+  // 获取当前阶段名称用于导航
+  const getCurrentStageName = () => {
+    const stageMap = ['preflop', 'flop', 'turn', 'river'];
+    return stageMap[bettingRound] || 'preflop';
+  };
+
+  // 计算savedFutureState中可达的最远阶段
+  const getMaxReachableStage = () => {
+    if (!savedFutureState) return null;
+    const stageMap = ['preflop', 'flop', 'turn', 'river'];
+    return stageMap[savedFutureState.bettingRound] || 'river';
+  };
+
+  const handleNavigateToStage = (stageName) => {
+    dispatch({ type: 'NAVIGATE_TO_STAGE', payload: { stage: stageName } });
+  };
+
   return (
     <div className="flex flex-col min-h-screen max-h-screen bg-slate-50 relative select-none">
+      {/* V2模式：顶部节点流程导航 */}
+      {isV2Mode && (
+        <div className="flex-none bg-slate-900 pt-2 pb-2 px-4 z-20">
+          <StageNavigation
+            currentStage={getCurrentStageName()}
+            onNavigate={handleNavigateToStage}
+            maxReachableStage={getMaxReachableStage()}
+          />
+        </div>
+      )}
+
       {/* 顶部状态板 */}
-      <div className="flex-none bg-felt-700 text-white px-6 pt-8 pb-6 rounded-b-[2rem] shadow-lg z-10 relative">
+      <div className={`flex-none bg-felt-700 text-white px-6 ${isV2Mode ? 'pt-4' : 'pt-8'} pb-6 rounded-b-[2rem] shadow-lg z-10 relative`}>
         <button
           onClick={handleExitToHome}
-          className="absolute top-8 left-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all"
+          className={`absolute ${isV2Mode ? 'top-4' : 'top-8'} left-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 shadow-sm active:scale-95 transition-all`}
         >
           放弃并返回
         </button>
@@ -39,7 +103,7 @@ export default function PlayScreen() {
         {historySnapshots.length > 0 && (
           <button
             onClick={handleUndo}
-            className="absolute top-8 right-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all"
+            className={`absolute ${isV2Mode ? 'top-4' : 'top-8'} right-6 text-xs bg-felt-500 border border-felt-300 hover:bg-felt-300 px-3 py-1.5 rounded-full font-bold text-slate-300 flex items-center shadow-sm active:scale-95 transition-all`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
               <path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
@@ -89,7 +153,7 @@ export default function PlayScreen() {
       {/* 底部玩家状态条 */}
       <div className="flex-none w-full p-4 pb-6 bg-slate-100 border-t border-slate-200 z-40">
         <div className="flex justify-between text-[11px] text-slate-500 mb-3 font-black tracking-wider uppercase px-1">
-          点击玩家可补录死牌/亮牌
+          长按玩家名可改名 · 点击补录亮牌
         </div>
         <div className="flex flex-wrap gap-2">
           {players.map((p) => (
@@ -98,6 +162,7 @@ export default function PlayScreen() {
               player={p}
               isActive={p.id === currentTurn}
               onRevealCard={handleRevealCard}
+              onNameChange={handleNameChange}
             />
           ))}
         </div>

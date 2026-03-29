@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import {
   createInitialPlayers,
+  createInitialPlayersV2,
   processAction,
   checkRoundEnd,
   findNextActor,
@@ -12,6 +13,8 @@ const GameContext = createContext(null);
 
 const initialState = {
   stage: 'home',
+  // V2 模式标记
+  isV2Mode: false,
   playerCount: 6,
   sbAmount: 1,
   bbAmount: 2,
@@ -29,6 +32,18 @@ const initialState = {
   pickingCardsTarget: null,
   tempCards: [],
   isViewingSave: false,
+  // V2 新增: 玩家自定义名称
+  playerNames: {},
+  // V2 新增: 玩家筹码信息
+  playerStacks: {},
+  // V2 新增: 复盘备注
+  gameNotes: '',
+  // V2 新增: 当前行动阶段（用于节点导航）
+  actionStage: 'setup',
+  // V2 新增: 设置阶段预设的公共牌（与游戏中的communityCards分开存储）
+  presetCommunityCards: [],
+  // V2 新增: 保存的前进状态（用于导航回退时保留后续数据）
+  savedFutureState: null,
 };
 
 function gameReducer(state, action) {
@@ -41,6 +56,15 @@ function gameReducer(state, action) {
         ...state,
         playerCount: action.payload.count,
         heroIndex: action.payload.count - 1,
+      };
+
+    // V2: 设置入池人数，不自动设置heroIndex为最后一个
+    case 'SET_PLAYER_COUNT_V2':
+      return {
+        ...state,
+        playerCount: action.payload.count,
+        heroIndex: state.heroIndex >= action.payload.count ? 0 : state.heroIndex,
+        isV2Mode: true,
       };
 
     case 'SET_BLINDS':
@@ -65,11 +89,41 @@ function gameReducer(state, action) {
         heroCards: [null, null],
         players: [],
         communityCards: [],
+        presetCommunityCards: [],
         tempCards: [],
         history: [],
         historySnapshots: [],
         winners: [],
+        isV2Mode: false,
+        playerNames: {},
+        playerStacks: {},
+        gameNotes: '',
+        actionStage: 'setup',
         stage: 'setup',
+        savedFutureState: null,
+      };
+
+    // V2: 新建游戏进入V2模式
+    case 'RESET_FOR_NEW_GAME_V2':
+      return {
+        ...state,
+        playerCount: 2,
+        heroIndex: 0,
+        heroCards: [null, null],
+        players: [],
+        communityCards: [],
+        presetCommunityCards: [],
+        tempCards: [],
+        history: [],
+        historySnapshots: [],
+        winners: [],
+        isV2Mode: true,
+        playerNames: {},
+        playerStacks: {},
+        gameNotes: '',
+        actionStage: 'setup',
+        stage: 'setupV2',
+        savedFutureState: null,
       };
 
     case 'EXIT_TO_HOME':
@@ -81,6 +135,7 @@ function gameReducer(state, action) {
         history: [],
         historySnapshots: [],
         communityCards: [],
+        presetCommunityCards: [],
         bettingRound: 0,
         highestBet: 0,
         potSize: 0,
@@ -88,6 +143,7 @@ function gameReducer(state, action) {
         pickingCardsTarget: null,
         tempCards: [],
         isViewingSave: false,
+        savedFutureState: null,
       };
 
     case 'REWRITE_FROM_CURRENT_HAND': {
@@ -108,6 +164,7 @@ function gameReducer(state, action) {
         history: [],
         historySnapshots: [],
         communityCards: [],
+        presetCommunityCards: [],
         bettingRound: 0,
         highestBet: 0,
         potSize: 0,
@@ -140,7 +197,211 @@ function gameReducer(state, action) {
         winners: [],
         currentTurn: 0,
         stage: 'play',
+        actionStage: 'preflop',
+        savedFutureState: null,
       };
+    }
+
+    // V2: 开始游戏，总是从翻前开始，预设公共牌在过渡时自动使用
+    case 'START_GAME_V2': {
+      const init = createInitialPlayersV2(
+        state.playerCount,
+        state.heroIndex,
+        state.heroCards,
+        state.playerNames
+      );
+      return {
+        ...state,
+        isViewingSave: false,
+        isV2Mode: true,
+        players: init.players,
+        potSize: 0,
+        highestBet: 0,
+        bettingRound: 0,
+        communityCards: [],
+        presetCommunityCards: state.presetCommunityCards,
+        history: [{ isDivider: true, text: '--- 进入 翻前 (Pre-flop) ---', cards: [] }],
+        historySnapshots: [],
+        winners: [],
+        currentTurn: 0,
+        stage: 'play',
+        actionStage: 'preflop',
+        savedFutureState: null,
+      };
+    }
+
+    // V2: 更新玩家名称
+    case 'UPDATE_PLAYER_NAME': {
+      const newNames = { ...state.playerNames };
+      const oldName = state.players.find(p => p.id === action.payload.playerId)?.name;
+      newNames[action.payload.playerId] = action.payload.name;
+      
+      // 如果游戏已经开始，也更新players数组中的名称
+      let updatedPlayers = state.players;
+      if (state.players.length > 0) {
+        updatedPlayers = state.players.map((p) => {
+          if (p.id === action.payload.playerId) {
+            return { ...p, name: action.payload.name };
+          }
+          return p;
+        });
+      }
+
+      // 同步更新历史记录中的玩家名称
+      const updatedHistory = (oldName && oldName !== action.payload.name) ? state.history.map((h) => {
+        if (!h.isDivider && !h.isWinLog && h.player === oldName) {
+          return { ...h, player: action.payload.name };
+        }
+        if (h.isWinLog && typeof h.action === 'string' && h.action.includes(oldName)) {
+          // 精确替换赢家日志中的玩家名称（格式: "Name1 & Name2 赢下底池: 100"）
+          const parts = h.action.split(' 赢下底池');
+          if (parts.length >= 2) {
+            const names = parts[0].split(' & ').map(n => n.trim() === oldName ? action.payload.name : n);
+            return { ...h, action: names.join(' & ') + ' 赢下底池' + parts.slice(1).join(' 赢下底池') };
+          }
+        }
+        return h;
+      }) : state.history;
+      
+      return { 
+        ...state, 
+        playerNames: newNames,
+        players: updatedPlayers,
+        history: updatedHistory,
+      };
+    }
+
+    // V2: 更新玩家筹码
+    case 'UPDATE_PLAYER_STACK': {
+      const newStacks = { ...state.playerStacks };
+      newStacks[action.payload.playerId] = action.payload.stack;
+      
+      // 如果游戏已经开始，也更新players数组中的筹码
+      let updatedPlayers = state.players;
+      if (state.players.length > 0) {
+        updatedPlayers = state.players.map((p) => {
+          if (p.id === action.payload.playerId) {
+            return { ...p, stackSize: action.payload.stack };
+          }
+          return p;
+        });
+      }
+      
+      return { 
+        ...state, 
+        playerStacks: newStacks,
+        players: updatedPlayers,
+      };
+    }
+
+    // V2: 更新复盘备注
+    case 'UPDATE_GAME_NOTES':
+      return { ...state, gameNotes: action.payload.notes };
+
+    // V2: 导航到指定阶段（保留前进状态，避免误触丢失数据）
+    case 'NAVIGATE_TO_STAGE': {
+      const targetStage = action.payload.stage;
+      const stageToRound = { 'preflop': 0, 'flop': 1, 'turn': 2, 'river': 3 };
+      const targetRound = stageToRound[targetStage];
+      
+      if (targetRound === undefined || targetStage === 'setup') {
+        // 根据当前模式返回对应的setup界面
+        return { 
+          ...state, 
+          stage: state.isV2Mode ? 'setupV2' : 'setup', 
+          actionStage: 'setup' 
+        };
+      }
+      
+      // 前进导航：从savedFutureState中恢复
+      if (targetRound > state.bettingRound && state.savedFutureState) {
+        const fs = state.savedFutureState;
+        
+        // 目标等于或超过保存的最远阶段 → 完整恢复
+        if (targetRound >= fs.bettingRound) {
+          return {
+            ...state,
+            players: fs.players,
+            currentTurn: fs.currentTurn,
+            history: fs.history,
+            communityCards: fs.communityCards,
+            bettingRound: fs.bettingRound,
+            highestBet: fs.highestBet,
+            potSize: fs.potSize,
+            historySnapshots: fs.historySnapshots,
+            stage: fs.stage,
+            actionStage: fs.actionStage,
+            pickingCardsTarget: fs.pickingCardsTarget,
+            winners: fs.winners || [],
+            savedFutureState: null,
+          };
+        }
+        
+        // 目标在当前和最远之间 → 从savedFutureState的快照中恢复
+        let snapshotIndex = -1;
+        for (let i = 0; i < fs.historySnapshots.length; i++) {
+          if (fs.historySnapshots[i].bettingRound === targetRound) {
+            snapshotIndex = i;
+            break;
+          }
+        }
+        
+        if (snapshotIndex >= 0) {
+          const snapshot = fs.historySnapshots[snapshotIndex];
+          return {
+            ...state,
+            ...restoreSnapshot(snapshot),
+            historySnapshots: fs.historySnapshots.slice(0, snapshotIndex),
+            stage: 'play',
+            actionStage: targetStage,
+            pickingCardsTarget: null,
+            savedFutureState: fs,
+          };
+        }
+      }
+      
+      // 后退导航（包括回到当前阶段的起点）
+      if (targetRound <= state.bettingRound && state.historySnapshots.length > 0) {
+        // 保存当前完整状态，以便之后恢复（仅在没有已保存的前进状态时才保存）
+        const futureStateToSave = state.savedFutureState || {
+          players: JSON.parse(JSON.stringify(state.players)),
+          currentTurn: state.currentTurn,
+          history: JSON.parse(JSON.stringify(state.history)),
+          communityCards: [...state.communityCards],
+          bettingRound: state.bettingRound,
+          highestBet: state.highestBet,
+          potSize: state.potSize,
+          historySnapshots: JSON.parse(JSON.stringify(state.historySnapshots)),
+          stage: state.stage,
+          actionStage: state.actionStage,
+          pickingCardsTarget: state.pickingCardsTarget,
+          winners: [...(state.winners || [])],
+        };
+        
+        // 找到该阶段的第一个快照（即该阶段的起始状态）
+        let snapshotIndex = -1;
+        for (let i = 0; i < state.historySnapshots.length; i++) {
+          if (state.historySnapshots[i].bettingRound === targetRound) {
+            snapshotIndex = i;
+            break;
+          }
+        }
+        
+        if (snapshotIndex >= 0) {
+          const snapshot = state.historySnapshots[snapshotIndex];
+          return {
+            ...state,
+            ...restoreSnapshot(snapshot),
+            historySnapshots: state.historySnapshots.slice(0, snapshotIndex),
+            stage: 'play',
+            actionStage: targetStage,
+            pickingCardsTarget: null,
+            savedFutureState: futureStateToSave,
+          };
+        }
+      }
+      
+      return { ...state, actionStage: targetStage };
     }
 
     case 'PLAYER_ACTION': {
@@ -189,6 +450,7 @@ function gameReducer(state, action) {
         stage: nextStage,
         pickingCardsTarget: pickTarget,
         tempCards: pickTarget ? [] : state.tempCards,
+        savedFutureState: null,
       };
     }
 
@@ -217,6 +479,26 @@ function gameReducer(state, action) {
       return { ...state, tempCards: newTemp };
     }
 
+    // V2设置阶段：设置公共牌到预设数组（不触发TRANSITION_STREET）
+    case 'SET_SETUP_COMMUNITY_CARD': {
+      const { index, card } = action.payload;
+      const newPresetCards = [...(state.presetCommunityCards || [])];
+      // 确保数组足够长
+      while (newPresetCards.length <= index) {
+        newPresetCards.push(null);
+      }
+      newPresetCards[index] = card;
+      return { 
+        ...state, 
+        presetCommunityCards: newPresetCards,
+        pickingCardsTarget: null,
+      };
+    }
+
+    // V2设置阶段：清除所有预设公共牌
+    case 'CLEAR_SETUP_COMMUNITY_CARDS':
+      return { ...state, presetCommunityCards: [] };
+
     case 'TRANSITION_STREET': {
       const snapshot = createSnapshot(state);
       const result = transitionToNextStreet(
@@ -240,6 +522,8 @@ function gameReducer(state, action) {
         nextTurn = result.nextAction.nextTurn;
       }
 
+      const stageNames = ['preflop', 'flop', 'turn', 'river'];
+
       return {
         ...state,
         players: result.players,
@@ -252,6 +536,8 @@ function gameReducer(state, action) {
         tempCards: [],
         currentTurn: nextTurn,
         stage: nextStage,
+        actionStage: stageNames[result.bettingRound] || 'river',
+        savedFutureState: null,
       };
     }
 
@@ -309,6 +595,11 @@ function gameReducer(state, action) {
         winners: [],
         isViewingSave: true,
         stage: 'summary',
+        // V2 字段
+        isV2Mode: game.isV2Mode ?? false,
+        playerNames: game.playerNames ?? {},
+        playerStacks: game.playerStacks ?? {},
+        gameNotes: game.gameNotes ?? '',
       };
     }
 
