@@ -163,6 +163,17 @@ but requested an insecure resource 'http://...'
 
 如果访问网站时看到 **502 Bad Gateway** 错误，说明 Traefik（反向代理）无法从后端容器获取响应。
 
+### 🔧 快速诊断脚本
+
+我们提供了一个诊断脚本，可以自动检查常见问题：
+
+```bash
+# 在服务器上下载并运行诊断脚本
+curl -sL https://raw.githubusercontent.com/liumuzi/poker-plus/main/scripts/diagnose.sh | bash
+```
+
+或者手动检查以下各项：
+
 ### ✅ 1. 检查容器是否正在运行
 
 ```bash
@@ -224,6 +235,30 @@ docker logs $(docker ps -q -f name=traefik) 2>&1 | tail -50
 ### ✅ 6. 确认端口映射正确
 
 Dokploy/Traefik 默认连接容器的 `EXPOSE` 端口（本项目为 **80**）。如果在 Dokploy 中手动修改过端口配置，请确认与 Dockerfile 中的 `EXPOSE 80` 一致。
+
+### ✅ 7. 检查 Docker 网络（最常见原因）
+
+**502 Bad Gateway 最常见的原因是 Traefik 和应用容器不在同一个 Docker 网络中。**
+
+```bash
+# 查看 Poker 容器所在网络
+docker inspect <poker容器ID> | grep -A 10 "Networks"
+
+# 查看 Traefik 容器所在网络
+docker inspect $(docker ps -q -f name=traefik) | grep -A 10 "Networks"
+```
+
+**解决方法：**
+
+在 Dokploy 中，进入应用设置 → **Advanced** → **Network**，确保选择与 Traefik 相同的网络（通常是 `dokploy-network`）。
+
+### ✅ 8. 强制重新部署
+
+如果以上检查都正常，尝试在 Dokploy 中：
+
+1. 点击 **Stop** 停止当前部署
+2. 点击 **Redeploy** 重新部署
+3. 等待构建完成后检查是否正常
 
 ---
 
