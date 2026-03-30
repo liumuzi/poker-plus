@@ -5,8 +5,8 @@ WORKDIR /app
 # 复制 package.json 和 package-lock.json
 COPY package*.json ./
 
-# 安装依赖
-RUN npm install
+# 安装依赖（npm ci 比 npm install 更快更可靠，适合 CI/Docker 环境）
+RUN npm ci
 
 # 复制源代码并构建
 COPY . .
@@ -23,6 +23,11 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # 暴露 80 端口
 EXPOSE 80
+
+# 健康检查：每 30 秒检查一次，5 秒内未响应则认为失败
+# 使用 127.0.0.1 而非 localhost，避免 IPv6 解析问题
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1/health || exit 1
 
 # 启动 Nginx
 CMD ["nginx", "-g", "daemon off;"]

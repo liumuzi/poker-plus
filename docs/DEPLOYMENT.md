@@ -159,6 +159,74 @@ but requested an insecure resource 'http://...'
 
 ---
 
+## Bad Gateway (502) 排查
+
+如果访问网站时看到 **502 Bad Gateway** 错误，说明 Traefik（反向代理）无法从后端容器获取响应。
+
+### ✅ 1. 检查容器是否正在运行
+
+```bash
+# 查看所有容器状态
+docker ps -a | grep poker
+
+# 如果容器状态为 Exited 或 Restarting，查看日志
+docker logs <容器ID>
+```
+
+常见容器崩溃原因：
+- 构建失败（`npm ci` 或 `npm run build` 出错）
+- nginx 配置语法错误
+
+### ✅ 2. 检查 Docker 镜像构建是否成功
+
+在 Dokploy 面板中查看 **Deployments** 页签，确认最近一次部署的构建日志没有报错。
+
+常见构建失败原因：
+- `npm ci` 失败：服务器无法访问 npm registry（检查网络/防火墙）
+- `npm run build` 失败：代码有编译错误
+
+### ✅ 3. 检查容器健康状态
+
+```bash
+# 查看容器健康检查状态
+docker inspect --format='{{.State.Health.Status}}' <容器ID>
+
+# 查看最近的健康检查结果
+docker inspect --format='{{json .State.Health}}' <容器ID> | python3 -m json.tool
+```
+
+状态说明：
+- `healthy` — 容器正常运行
+- `unhealthy` — nginx 未正常响应，需要查看容器日志
+- `starting` — 容器正在启动，等待几秒后再次检查
+
+### ✅ 4. 手动测试容器连通性
+
+```bash
+# 进入容器测试 nginx 是否正常响应
+docker exec <容器ID> wget -qO- http://localhost/health
+# 期望输出：ok
+
+# 测试 nginx 配置是否有效
+docker exec <容器ID> nginx -t
+```
+
+### ✅ 5. 检查 Traefik 路由配置
+
+```bash
+# 查看 Traefik 日志中的路由信息
+docker logs $(docker ps -q -f name=traefik) 2>&1 | grep -i "poker\|502\|bad gateway\|error"
+
+# 检查 Traefik 是否发现了后端容器
+docker logs $(docker ps -q -f name=traefik) 2>&1 | tail -50
+```
+
+### ✅ 6. 确认端口映射正确
+
+Dokploy/Traefik 默认连接容器的 `EXPOSE` 端口（本项目为 **80**）。如果在 Dokploy 中手动修改过端口配置，请确认与 Dockerfile 中的 `EXPOSE 80` 一致。
+
+---
+
 ## Nginx 安全配置说明
 
 本项目的 `nginx.conf` 已包含以下安全配置：
