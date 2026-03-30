@@ -1,11 +1,11 @@
-# 构建阶段
-FROM node:20-alpine AS builder
+# 构建阶段 - 使用 Node 20 slim（比 Alpine 更稳定）
+FROM node:20-slim AS builder
 WORKDIR /app
 
 # 复制 package.json 和 package-lock.json
 COPY package*.json ./
 
-# 安装依赖（npm ci 比 npm install 更快更可靠，适合 CI/Docker 环境）
+# 安装依赖
 RUN npm ci
 
 # 复制源代码并构建
