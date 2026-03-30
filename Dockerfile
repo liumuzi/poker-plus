@@ -1,12 +1,17 @@
 # 构建阶段 - 使用 Node 20 slim（比 Alpine 更稳定）
 FROM node:20-slim AS builder
+
+# Cache busting：修改此值可强制 Dokploy 重新构建
+# 如果部署仍显示 502，请在 Dokploy 中清除缓存并重新部署
+ARG CACHE_BUST=2026-03-30-v2
+
 WORKDIR /app
 
 # 复制 package.json 和 package-lock.json
 COPY package*.json ./
 
-# 安装依赖
-RUN npm ci
+# 安装依赖 - 使用 npm ci 确保精确版本
+RUN npm ci && npm cache clean --force
 
 # 复制源代码并构建
 COPY . .
