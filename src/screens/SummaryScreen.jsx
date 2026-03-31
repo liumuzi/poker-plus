@@ -7,21 +7,47 @@ import CardDisplay from '../components/CardDisplay';
 
 export default function SummaryScreen() {
   const {
-    history, potSize, players, communityCards, isViewingSave,
-    sbAmount, bbAmount, winners, playerCount, heroIndex, heroCards, 
-    isV2Mode, gameNotes, playerStacks, dispatch,
+    history, potSize, players, communityCards, isViewingSave, loadedGameId,
+    sbAmount, bbAmount, winners, playerCount, heroIndex, heroCards,
+    isV2Mode, gameNotes, dispatch,
   } = useGame();
-  const { saveGame } = useSavedGames();
+  const { saveGame, updateGame } = useSavedGames();
   const { scrollRef, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove } = useDragScroll();
-  
-  // V2新增：编辑模式状态
-  const [showEditPanel, setShowEditPanel] = useState(false);
-  const [editingPlayerId, setEditingPlayerId] = useState(null);
-  const [tempPlayerName, setTempPlayerName] = useState('');
-  const [tempPlayerStack, setTempPlayerStack] = useState('');
-  const [tempNotes, setTempNotes] = useState(gameNotes || '');
 
-  // 玩家名称内联编辑状态
+  // 备注/编辑面板状态
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [tempNotes, setTempNotes] = useState(gameNotes || '');
+  // 面板内玩家名称+后手筹码的临时编辑值，key = player.id
+  const [playerEdits, setPlayerEdits] = useState({});
+
+  // 初始化/同步 playerEdits（当面板打开或 players 变化时）
+  useEffect(() => {
+    if (showNotesPanel) {
+      setPlayerEdits(
+        Object.fromEntries(players.map((p) => [p.id, { name: p.name, stack: p.stackSize ?? '' }]))
+      );
+    }
+  }, [showNotesPanel, players]);
+
+  const handlePlayerEditChange = (id, field, value) => {
+    setPlayerEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  };
+
+  const handlePlayerEditBlur = (player, field) => {
+    const edit = playerEdits[player.id];
+    if (!edit) return;
+    if (field === 'name' && edit.name.trim() && edit.name.trim() !== player.name) {
+      dispatch({ type: 'UPDATE_PLAYER_NAME', payload: { playerId: player.id, name: edit.name.trim() } });
+    }
+    if (field === 'stack') {
+      const val = Number(edit.stack);
+      if (!isNaN(val) && val !== (player.stackSize ?? '')) {
+        dispatch({ type: 'UPDATE_PLAYER_STACK', payload: { playerId: player.id, stack: val } });
+      }
+    }
+  };
+
+  // 行动历史内联改名（点击玩家头像）
   const [inlineEditId, setInlineEditId] = useState(null);
   const [inlineTempName, setInlineTempName] = useState('');
   const inlineInputRef = useRef(null);
@@ -111,37 +137,28 @@ export default function SummaryScreen() {
     dispatch({ type: 'REWRITE_FROM_CURRENT_HAND' });
   };
 
-  // V2新增：玩家名称编辑功能
-  const handleStartEditPlayer = (player) => {
-    setEditingPlayerId(player.id);
-    setTempPlayerName(player.name);
-    setTempPlayerStack(player.stackSize ?? playerStacks?.[player.id] ?? '');
+  const handleRewriteV2 = () => {
+    dispatch({ type: 'RETURN_TO_PLAY' });
   };
 
-  const handleSavePlayerEdit = () => {
-    if (editingPlayerId !== null) {
-      if (tempPlayerName.trim()) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_NAME', 
-          payload: { playerId: editingPlayerId, name: tempPlayerName.trim() } 
-        });
-      }
-      if (tempPlayerStack) {
-        dispatch({ 
-          type: 'UPDATE_PLAYER_STACK', 
-          payload: { playerId: editingPlayerId, stack: Number(tempPlayerStack) } 
-        });
-      }
+  const handleSaveNotes = () => {
+    dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes: tempNotes } });
+    // 若是查看存档，实时同步到 localStorage
+    if (isViewingSave && loadedGameId) {
+      updateGame(loadedGameId, { gameNotes: tempNotes });
     }
-    setEditingPlayerId(null);
-    setTempPlayerName('');
-    setTempPlayerStack('');
   };
 
-  const handleCancelPlayerEdit = () => {
-    setEditingPlayerId(null);
-    setTempPlayerName('');
-    setTempPlayerStack('');
+  const handleSaveViewedGame = () => {
+    if (loadedGameId) {
+      updateGame(loadedGameId, {
+        players,
+        gameNotes: tempNotes,
+        playerNames: Object.fromEntries(players.map(p => [p.id, p.name])),
+        playerStacks: Object.fromEntries(players.map(p => [p.id, p.stackSize])),
+      });
+    }
+    dispatch({ type: 'SET_STAGE', payload: { stage: 'home' } });
   };
 
   // 内联编辑：点击非Hero玩家名称开始编辑
@@ -165,11 +182,6 @@ export default function SummaryScreen() {
     setInlineTempName('');
   };
 
-  // V2新增：保存备注
-  const handleSaveNotes = () => {
-    dispatch({ type: 'UPDATE_GAME_NOTES', payload: { notes: tempNotes } });
-  };
-
   const handleSave = () => {
     saveGame({
       potSize,
@@ -181,11 +193,9 @@ export default function SummaryScreen() {
       playerCount,
       heroIndex,
       heroCards,
-      // V2新增字段
       isV2Mode,
       gameNotes: tempNotes,
       playerNames: Object.fromEntries(players.map(p => [p.id, p.name])),
-      playerStacks,
     });
     dispatch({ type: 'SET_STAGE', payload: { stage: 'home' } });
   };
@@ -237,104 +247,89 @@ export default function SummaryScreen() {
             </div>
           )}
 
-          {/* V2新增：编辑面板切换按钮 */}
+          {/* 编辑入口 */}
           <div className="mt-3 flex space-x-2">
+            {!isViewingSave && (isV2Mode ? (
+              <button
+                onClick={handleRewriteV2}
+                className="flex-1 text-xs px-3 py-2 rounded-xl border font-bold bg-blue-600 text-white border-blue-500 active:scale-95 transition-all"
+              >
+                ✏️ 返回修改行动 / 牌面
+              </button>
+            ) : (
+              <button
+                onClick={handleRewriteFromStart}
+                className="flex-1 text-xs px-3 py-2 rounded-xl border font-bold bg-felt-500 text-slate-300 border-felt-300 active:scale-95 transition-all"
+              >
+                回到记录界面重写本手
+              </button>
+            ))}
             <button
-              onClick={handleRewriteFromStart}
-              className="text-xs px-3 py-1.5 rounded-full border font-bold bg-felt-500 text-slate-300 border-felt-300"
-            >
-              回到记录界面重写本手
-            </button>
-            <button
-              onClick={() => setShowEditPanel(!showEditPanel)}
-              className={`text-xs px-3 py-1.5 rounded-full border font-bold transition-colors ${
-                showEditPanel 
-                  ? 'bg-blue-500 text-white border-blue-400' 
+              onClick={() => setShowNotesPanel(!showNotesPanel)}
+              className={`flex-1 text-xs px-3 py-2 rounded-xl border font-bold transition-colors active:scale-95 ${
+                showNotesPanel
+                  ? 'bg-blue-500 text-white border-blue-400'
                   : 'bg-felt-500 text-slate-300 border-felt-300'
               }`}
             >
-              {showEditPanel ? '收起编辑' : '📝 编辑/备注'}
+              {showNotesPanel ? '收起' : '📝 备注 / 编辑'}
             </button>
           </div>
 
-          {/* V2新增：编辑面板 */}
-          {showEditPanel && (
-            <div className="mt-3 bg-felt-600 rounded-xl p-3 border border-felt-400">
-              <h4 className="text-xs font-bold text-slate-300 mb-3 uppercase tracking-wider">玩家信息编辑</h4>
-              
-              {/* 玩家列表 */}
-              <div className="space-y-2 mb-4">
-                {players.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between bg-felt-500 rounded-lg p-2">
-                    {editingPlayerId === p.id ? (
-                      <div className="flex-1 flex items-center space-x-2">
+          {/* 备注/编辑面板 */}
+          {showNotesPanel && (
+            <div className="mt-3 bg-felt-600 rounded-xl p-3 border border-felt-400 space-y-3">
+              {/* 玩家名称 + 后手筹码 */}
+              <div>
+                <h4 className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">玩家信息</h4>
+                <div className="space-y-1.5">
+                  {players.map((p) => {
+                    const edit = playerEdits[p.id] ?? { name: p.name, stack: p.stackSize ?? '' };
+                    return (
+                      <div key={p.id} className="flex items-center gap-2">
+                        {/* 名称输入 */}
                         <input
                           type="text"
-                          value={tempPlayerName}
-                          onChange={(e) => setTempPlayerName(e.target.value)}
-                          placeholder="玩家名称"
-                          className="flex-1 bg-felt-700 border border-felt-300 rounded px-2 py-1 text-xs text-white"
+                          value={edit.name}
+                          onChange={(e) => handlePlayerEditChange(p.id, 'name', e.target.value)}
+                          onBlur={() => handlePlayerEditBlur(p, 'name')}
+                          className={`flex-1 bg-felt-700 border rounded px-2 py-1 text-xs text-white min-w-0
+                            ${p.isHero ? 'border-amber-500/60' : 'border-felt-300'}`}
                         />
-                        <input
-                          type="number"
-                          value={tempPlayerStack}
-                          onChange={(e) => setTempPlayerStack(e.target.value)}
-                          placeholder="后手筹码"
-                          className="w-20 bg-felt-700 border border-felt-300 rounded px-2 py-1 text-xs text-white"
-                        />
-                        <button
-                          onClick={handleSavePlayerEdit}
-                          className="text-emerald-400 text-xs px-2 py-1 bg-emerald-500/20 rounded"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={handleCancelPlayerEdit}
-                          className="text-red-400 text-xs px-2 py-1 bg-red-500/20 rounded"
-                        >
-                          ✗
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs font-bold ${p.isHero ? 'text-amber-400' : 'text-slate-300'}`}>
-                            {p.name} {p.isHero && '👑'}
-                          </span>
-                        {(p.stackSize != null || playerStacks?.[p.id] != null) && (
-                            <span className="text-[10px] text-slate-500">
-                              后手: {p.stackSize ?? playerStacks?.[p.id] ?? 0}
-                            </span>
-                          )}
+                        {/* 后手筹码输入 */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] text-slate-500">后手</span>
+                          <input
+                            type="number"
+                            value={edit.stack}
+                            onChange={(e) => handlePlayerEditChange(p.id, 'stack', e.target.value)}
+                            onBlur={() => handlePlayerEditBlur(p, 'stack')}
+                            placeholder="—"
+                            className="w-16 bg-felt-700 border border-felt-300 rounded px-2 py-1 text-xs text-white text-right"
+                          />
                         </div>
-                        <button
-                          onClick={() => handleStartEditPlayer(p)}
-                          className="text-blue-400 text-xs px-2 py-1 bg-blue-500/20 rounded hover:bg-blue-500/30"
-                        >
-                          编辑
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* 备注区域 */}
-              <h4 className="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">复盘备注</h4>
-              <textarea
-                value={tempNotes}
-                onChange={(e) => setTempNotes(e.target.value)}
-                onBlur={handleSaveNotes}
-                placeholder="在这里记录你的复盘思考、反思或注意事项..."
-                className="w-full bg-felt-700 border border-felt-300 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 min-h-[80px] resize-none"
-              />
+              {/* 分隔线 */}
+              <div className="border-t border-felt-400" />
+
+              {/* 复盘备注 */}
+              <div>
+                <h4 className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">复盘备注</h4>
+                <textarea
+                  value={tempNotes}
+                  onChange={(e) => setTempNotes(e.target.value)}
+                  onBlur={handleSaveNotes}
+                  placeholder="记录复盘思考、反思或注意事项..."
+                  className="w-full bg-felt-700 border border-felt-300 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 min-h-[72px] resize-none"
+                />
+              </div>
             </div>
           )}
-      </div>
-
-      {/* 提示文字：点击玩家名可改名 */}
-      <div className="px-4 py-1.5 text-[10px] text-slate-500 font-bold tracking-wider">
-        点击下方玩家名称可修改名称
       </div>
 
       <div
@@ -448,12 +443,20 @@ export default function SummaryScreen() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-felt-700/90 backdrop-blur-md p-4 border-t border-felt-400 z-30">
         {isViewingSave ? (
-          <button
-            onClick={handleGoHome}
-            className="w-full bg-felt-300 hover:bg-felt-200 active:scale-95 transition-transform text-white py-4 rounded-2xl font-bold text-sm shadow-xl border border-felt-200"
-          >
-            返回首页
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleGoHome}
+              className="flex-none px-5 bg-felt-300 hover:bg-felt-200 active:scale-95 transition-transform text-white py-4 rounded-2xl font-bold text-sm border border-felt-200"
+            >
+              返回
+            </button>
+            <button
+              onClick={handleSaveViewedGame}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform text-white py-4 rounded-2xl font-black text-sm shadow-[0_10px_30px_rgb(5,150,105,0.4)] border border-emerald-400"
+            >
+              保存修改
+            </button>
+          </div>
         ) : (
           <button
             onClick={handleSave}

@@ -32,6 +32,8 @@ const initialState = {
   pickingCardsTarget: null,
   tempCards: [],
   isViewingSave: false,
+  loadedGameId: null,
+  pickingFirstActor: false,
   // V2 新增: 玩家自定义名称
   playerNames: {},
   // V2 新增: 玩家筹码信息
@@ -108,7 +110,7 @@ function gameReducer(state, action) {
       return {
         ...state,
         playerCount: 2,
-        heroIndex: 0,
+        heroIndex: 1,
         heroCards: [null, null],
         players: [],
         communityCards: [],
@@ -145,6 +147,36 @@ function gameReducer(state, action) {
         isViewingSave: false,
         savedFutureState: null,
       };
+
+    case 'RETURN_TO_PLAY':
+      return { ...state, stage: 'play' };
+
+    case 'REWRITE_FROM_CURRENT_HAND_V2': {
+      // 回到V2设置界面，保留所有已录入信息
+      const heroIdx = state.players.findIndex((p) => p.isHero);
+      const heroKnown = heroIdx >= 0 ? (state.players[heroIdx].knownCards || [null, null]) : [null, null];
+      return {
+        ...state,
+        heroIndex: heroIdx >= 0 ? heroIdx : state.heroIndex,
+        heroCards: [heroKnown[0] || null, heroKnown[1] || null],
+        players: [],
+        currentTurn: 0,
+        history: [],
+        historySnapshots: [],
+        communityCards: [],
+        bettingRound: 0,
+        highestBet: 0,
+        potSize: 0,
+        winners: [],
+        pickingCardsTarget: null,
+        tempCards: [],
+        pickingFirstActor: false,
+        savedFutureState: null,
+        stage: 'setupV2',
+        actionStage: 'setup',
+        // presetCommunityCards, playerCount, playerNames preserved
+      };
+    }
 
     case 'REWRITE_FROM_CURRENT_HAND': {
       const inferredPlayerCount = state.playerCount >= 2
@@ -192,6 +224,7 @@ function gameReducer(state, action) {
         highestBet: init.highestBet,
         bettingRound: 0,
         communityCards: [],
+        presetCommunityCards: state.presetCommunityCards,
         history: init.history,
         historySnapshots: [],
         winners: [],
@@ -199,6 +232,7 @@ function gameReducer(state, action) {
         stage: 'play',
         actionStage: 'preflop',
         savedFutureState: null,
+        pickingFirstActor: false,
       };
     }
 
@@ -227,6 +261,17 @@ function gameReducer(state, action) {
         stage: 'play',
         actionStage: 'preflop',
         savedFutureState: null,
+        pickingFirstActor: true,
+      };
+    }
+
+    case 'SET_FIRST_ACTOR': {
+      const snapshot = createSnapshot(state); // 保存"选首位行动者"前的状态（pickingFirstActor: true）
+      return {
+        ...state,
+        currentTurn: action.payload.index,
+        pickingFirstActor: false,
+        historySnapshots: [...state.historySnapshots, snapshot],
       };
     }
 
@@ -418,6 +463,24 @@ function gameReducer(state, action) {
       if (!result) return state;
 
       const newHistory = [...state.history, result.historyEntry];
+
+      // 弃牌后只剩1名玩家 → 直接进入结算，不再继续行动
+      const nonFoldedAfterAction = result.players.filter(p => !p.folded).length;
+      if (nonFoldedAfterAction <= 1) {
+        return {
+          ...state,
+          players: result.players,
+          potSize: result.potSize,
+          highestBet: result.highestBet,
+          history: newHistory,
+          historySnapshots: [...state.historySnapshots, snapshot],
+          stage: 'resolution',
+          pickingCardsTarget: null,
+          tempCards: [],
+          savedFutureState: null,
+        };
+      }
+
       const roundCheck = checkRoundEnd(result.players, result.highestBet, state.bettingRound);
 
       let nextTurn = state.currentTurn;
@@ -501,13 +564,16 @@ function gameReducer(state, action) {
 
     case 'TRANSITION_STREET': {
       const snapshot = createSnapshot(state);
+      // V1: BTN = playerCount-3, 翻后从SB(playerCount-2)开始; V2: BTN=0, 从1开始
+      const btnIndex = state.isV2Mode ? 0 : state.playerCount - 3;
       const result = transitionToNextStreet(
         state.players,
         state.communityCards,
         state.bettingRound,
         state.potSize,
         action.payload.cards,
-        state.playerCount
+        state.playerCount,
+        btnIndex
       );
 
       let nextStage = state.stage;
@@ -594,6 +660,7 @@ function gameReducer(state, action) {
         communityCards: game.communityCards || [],
         winners: [],
         isViewingSave: true,
+        loadedGameId: game.id ?? null,
         stage: 'summary',
         // V2 字段
         isV2Mode: game.isV2Mode ?? false,

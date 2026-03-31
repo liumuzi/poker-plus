@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
-import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import HorizontalTableDiagram from '../components/HorizontalTableDiagram';
+import PokerCardMini from '../components/PokerCardMini';
 
 /**
  * V2 配置界面 - 新的入池人数配置流程
  * 1. 选择flop入池人数 → 显示横向桌面图 → 点击设置Hero位置
  * 2. 录入Hero底牌 + 公共牌（预留拍照识别）
- * 3. 设置盲注
  */
 export default function SetupScreenV2() {
   const {
-    playerCount, heroIndex, heroCards, sbAmount, bbAmount, presetCommunityCards, dispatch,
+    playerCount, heroIndex, heroCards, presetCommunityCards, dispatch,
   } = useGame();
 
-  const [step, setStep] = useState(1); // 1: 人数+Hero位置, 2: 底牌+公共牌, 3: 盲注
+  const [step, setStep] = useState(1); // 1: 人数+Hero位置, 2: 底牌+公共牌
 
   const handleAbandonSetup = () => {
     if (!confirm('确认放弃当前配置并返回首页吗？')) return;
@@ -32,7 +31,7 @@ export default function SetupScreenV2() {
   };
 
   const handleNextStep = () => {
-    if (step < 3) {
+    if (step < 2) {
       setStep(step + 1);
     }
   };
@@ -50,29 +49,8 @@ export default function SetupScreenV2() {
   const canProceed = () => {
     switch (step) {
       case 1: return playerCount >= 2;
-      case 2: return true; // 底牌和公共牌都选填
-      case 3: return sbAmount > 0 && bbAmount > 0;
+      case 2: return true;
       default: return false;
-    }
-  };
-
-  // 生成玩家名称（玩家1, 玩家2... Hero）
-  const generatePlayerNames = () => {
-    const names = [];
-    for (let i = 0; i < playerCount; i++) {
-      names.push(getPlayerDisplayName(i));
-    }
-    return names;
-  };
-
-  // 获取单个玩家显示名称（提取共用逻辑）
-  const getPlayerDisplayName = (index) => {
-    if (index === heroIndex) {
-      return 'Hero';
-    } else if (index === 0) {
-      return 'BTN';
-    } else {
-      return `玩家${index}`;
     }
   };
 
@@ -93,7 +71,7 @@ export default function SetupScreenV2() {
         
         {/* 步骤指示器 */}
         <div className="flex justify-center space-x-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2].map((s) => (
             <div
               key={s}
               className={`w-2 h-2 rounded-full transition-all ${
@@ -121,7 +99,7 @@ export default function SetupScreenV2() {
               </p>
               
               <div className="grid grid-cols-5 gap-2">
-                {[2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                   <button
                     key={num}
                     onClick={() => handleSelectPlayerCount(num)}
@@ -159,54 +137,35 @@ export default function SetupScreenV2() {
             {/* Hero底牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 2</div>
-              <div className="text-lg font-black text-slate-800 mb-4">录入手牌信息 (选填)</div>
-              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">Hero底牌</div>
-              <div className="flex justify-center space-x-4">
-                <div
-                  onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: 'hero1' } })}
-                  className="w-16 h-22 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-2xl cursor-pointer bg-slate-50 hover:bg-slate-100"
-                >
-                  <CardDisplay card={heroCards[0]} />
-                </div>
-                <div
-                  onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: 'hero2' } })}
-                  className="w-16 h-22 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-2xl cursor-pointer bg-slate-50 hover:bg-slate-100"
-                >
-                  <CardDisplay card={heroCards[1]} />
-                </div>
+              <div className="text-lg font-black text-slate-800 mb-4">手牌录入</div>
+              <div className="flex justify-center gap-5">
+                {[{ target: 'hero1', card: heroCards[0] }, { target: 'hero2', card: heroCards[1] }].map(({ target, card }, idx) => (
+                  <PokerCardMini
+                    key={target}
+                    card={card}
+                    width={72}
+                    patternId={`setup-hero-${idx}`}
+                    onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target } })}
+                  />
+                ))}
               </div>
             </div>
 
             {/* 公共牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-4 uppercase">公共牌 (选填)</div>
-              <p className="text-sm text-slate-500 mb-4">
-                如果已知公共牌，可以在这里提前录入。也可以在游戏过程中录入。
-              </p>
-              
-              <div className="flex justify-center space-x-2 p-4 bg-emerald-900 rounded-xl">
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const card = (presetCommunityCards || [])[i] || null;
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
-                      className={`w-12 h-16 border-2 rounded-lg flex items-center justify-center text-lg cursor-pointer transition-all ${
-                        card 
-                          ? 'border-emerald-400 bg-white' 
-                          : 'border-dashed border-emerald-600 bg-emerald-800/50 hover:bg-emerald-700/50'
-                      }`}
-                    >
-                      {card ? (
-                        <CardDisplay card={card} />
-                      ) : (
-                        <span className="text-emerald-400">+</span>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="flex justify-center gap-2">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <PokerCardMini
+                    key={i}
+                    card={(presetCommunityCards || [])[i] || null}
+                    width={52}
+                    patternId={`setup-comm-${i}`}
+                    onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
+                  />
+                ))}
               </div>
-              
+
               {(presetCommunityCards || []).filter(Boolean).length > 0 && (
                 <div className="mt-4 text-center">
                   <button
@@ -217,7 +176,7 @@ export default function SetupScreenV2() {
                   </button>
                 </div>
               )}
-              
+
               <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <p className="text-xs text-amber-700">
                   💡 提示：未来版本将支持拍照识别公共牌
@@ -227,64 +186,6 @@ export default function SetupScreenV2() {
           </div>
         )}
 
-        {/* Step 3: 盲注设置 */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 3</div>
-              <div className="text-lg font-black text-slate-800 mb-4">设定盲注大小</div>
-              
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <label className="block text-[10px] font-black text-slate-400 mb-2">小盲 (SB)</label>
-                  <input
-                    type="number"
-                    pattern="[0-9]*"
-                    value={sbAmount === 0 ? '' : sbAmount}
-                    onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { sb: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-[10px] font-black text-slate-400 mb-2">大盲 (BB)</label>
-                  <input
-                    type="number"
-                    pattern="[0-9]*"
-                    value={bbAmount === 0 ? '' : bbAmount}
-                    onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { bb: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 配置预览 */}
-            <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">配置预览</div>
-              
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">入池人数</span>
-                  <span className="font-bold text-slate-800">{playerCount}人</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">Hero位置</span>
-                  <span className="font-bold text-slate-800">{getPlayerDisplayName(heroIndex)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">盲注</span>
-                  <span className="font-bold text-slate-800">{sbAmount}/{bbAmount}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-500">玩家</span>
-                  <span className="font-bold text-slate-800 text-xs">
-                    {generatePlayerNames().join(', ')}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 底部操作按钮 */}
@@ -299,7 +200,7 @@ export default function SetupScreenV2() {
             </button>
           )}
           
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={handleNextStep}
               disabled={!canProceed()}
@@ -314,12 +215,7 @@ export default function SetupScreenV2() {
           ) : (
             <button
               onClick={handleStartGame}
-              disabled={!canProceed()}
-              className={`flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-all ${
-                canProceed()
-                  ? 'bg-emerald-500 text-white active:scale-[0.98] shadow-lg'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
+              className="flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-all bg-emerald-500 text-white active:scale-[0.98] shadow-lg"
             >
               开始复盘 <ChevronRight className="ml-2 w-5 h-5" />
             </button>

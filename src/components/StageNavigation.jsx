@@ -1,97 +1,68 @@
 import React from 'react';
-import { useGame } from '../contexts/GameContext';
 
 /**
- * 节点流程图导航组件
- * 显示: 入池配置 → preflop → flop → turn → river
- * 支持前进/后退导航，后退时保留前进数据
+ * 顶部流程导航 — 简约对称样式
  */
 export default function StageNavigation({ currentStage, onNavigate, maxReachableStage }) {
   const stages = [
-    { id: 'setup', label: '入池配置', shortLabel: '配置' },
-    { id: 'preflop', label: '翻前', shortLabel: 'Pre' },
-    { id: 'flop', label: '翻牌', shortLabel: 'Flop' },
-    { id: 'turn', label: '转牌', shortLabel: 'Turn' },
-    { id: 'river', label: '河牌', shortLabel: 'River' },
+    { id: 'setup',   label: 'Setup' },
+    { id: 'preflop', label: 'Pre' },
+    { id: 'flop',    label: 'Flop' },
+    { id: 'turn',    label: 'Turn' },
+    { id: 'river',   label: 'River' },
   ];
 
-  const getCurrentStageIndex = () => {
-    return stages.findIndex(s => s.id === currentStage);
-  };
+  const currentIndex = stages.findIndex(s => s.id === currentStage);
+  const maxReachableIndex = maxReachableStage
+    ? stages.findIndex(s => s.id === maxReachableStage)
+    : -1;
 
-  const getMaxReachableIndex = () => {
-    if (!maxReachableStage) return -1;
-    return stages.findIndex(s => s.id === maxReachableStage);
-  };
-
-  const currentIndex = getCurrentStageIndex();
-  const maxReachableIndex = getMaxReachableIndex();
-
-  const handleStageClick = (stage, index) => {
-    // 可点击已完成的阶段、当前阶段、或savedFutureState中可达的前进阶段
-    const isClickable = index <= currentIndex || (maxReachableIndex >= 0 && index <= maxReachableIndex);
-    if (isClickable && onNavigate) {
-      onNavigate(stage.id);
-    }
+  const handleClick = (stage, index) => {
+    const clickable = index <= currentIndex || (maxReachableIndex >= 0 && index <= maxReachableIndex);
+    if (clickable && onNavigate) onNavigate(stage.id);
   };
 
   return (
-    <div className="flex items-center justify-center px-2 py-2 bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50">
+    <div className="flex items-start justify-center">
       {stages.map((stage, index) => {
         const isCompleted = index < currentIndex;
-        const isCurrent = index === currentIndex;
-        const isForwardReachable = !isCurrent && !isCompleted && maxReachableIndex >= 0 && index <= maxReachableIndex;
-        const isClickable = index <= currentIndex || isForwardReachable;
+        const isCurrent   = index === currentIndex;
+        const isForward   = !isCurrent && !isCompleted && maxReachableIndex >= 0 && index <= maxReachableIndex;
+        const isClickable = index <= currentIndex || isForward;
 
         return (
           <React.Fragment key={stage.id}>
             {/* 节点 */}
             <button
-              onClick={() => handleStageClick(stage, index)}
+              onClick={() => handleClick(stage, index)}
               disabled={!isClickable}
-              className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-                isClickable ? 'cursor-pointer hover:bg-slate-700/50' : 'cursor-not-allowed opacity-50'
-              }`}
+              className="flex flex-col items-center px-3 focus:outline-none"
             >
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${
-                  isCurrent
-                    ? 'bg-blue-500 border-blue-400 text-white ring-2 ring-blue-300/50'
-                    : isCompleted
-                      ? 'bg-emerald-500 border-emerald-400 text-white'
-                      : isForwardReachable
-                        ? 'bg-amber-500/80 border-amber-400 text-white'
-                        : 'bg-slate-700 border-slate-600 text-slate-400'
-                }`}
-              >
-                {isCompleted ? '✓' : isForwardReachable ? '↩' : index + 1}
-              </div>
-              <span
-                className={`text-[9px] mt-0.5 font-bold ${
-                  isCurrent
-                    ? 'text-blue-400'
-                    : isCompleted
-                      ? 'text-emerald-400'
-                      : isForwardReachable
-                        ? 'text-amber-400'
-                        : 'text-slate-500'
-                }`}
-              >
-                {stage.shortLabel}
+              <div className={`w-1.5 h-1.5 rounded-full mt-[5px] mb-1 transition-all ${
+                isCurrent   ? 'bg-white scale-125' :
+                isCompleted ? 'bg-emerald-400' :
+                isForward   ? 'bg-amber-400' :
+                              'bg-slate-600'
+              }`} />
+              <span className={`text-[10px] font-bold tracking-wide transition-all ${
+                isCurrent   ? 'text-white' :
+                isCompleted ? 'text-emerald-400' :
+                isForward   ? 'text-amber-400' :
+                              'text-slate-500'
+              }`}>
+                {stage.label}
               </span>
             </button>
 
-            {/* 连接线 */}
+            {/* 连接线 — 与圆点垂直居中 */}
             {index < stages.length - 1 && (
-              <div
-                className={`w-4 h-0.5 mx-0.5 ${
-                  index < currentIndex 
-                    ? 'bg-emerald-500' 
-                    : isForwardReachable || (index < maxReachableIndex && index >= currentIndex)
-                      ? 'bg-amber-500/50'
-                      : 'bg-slate-600'
-                }`}
-              />
+              <div className="flex items-start pt-[5px]">
+                <div className={`w-8 h-px mt-[3px] transition-all ${
+                  index < currentIndex ? 'bg-emerald-500/60' :
+                  (isForward || (index < maxReachableIndex && index >= currentIndex)) ? 'bg-amber-500/40' :
+                  'bg-slate-700'
+                }`} />
+              </div>
             )}
           </React.Fragment>
         );

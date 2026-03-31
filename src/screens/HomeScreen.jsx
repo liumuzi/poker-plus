@@ -114,16 +114,10 @@ export default function HomeScreen() {
         </button>
         <button
           onClick={handleNewGameV2}
-          className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-full font-bold shadow-lg shadow-emerald-500/50 active:scale-95 transition-transform mb-4 text-sm"
+          className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-emerald-500/50 active:scale-95 transition-transform mb-4"
         >
-          <Play size={16} className="fill-current" />
-          <span>新模式：入池人数配置</span>
-        </button>
-        <button
-          onClick={handleLoadTestCase}
-          className="text-xs text-slate-400 underline underline-offset-4 hover:text-slate-300"
-        >
-          加载测试用例 (还原截图样式)
+          <Play size={20} className="fill-current" />
+          <span>新建快捷复盘</span>
         </button>
       </div>
 
@@ -201,6 +195,12 @@ export default function HomeScreen() {
                       删除
                     </button>
                   </div>
+                  {/* 备注预览 */}
+                  {game.gameNotes && game.gameNotes.trim() && (
+                    <div className="mt-1.5 text-[10px] text-slate-400 leading-snug line-clamp-2 pl-[63px] pr-2">
+                      {game.gameNotes.trim()}
+                    </div>
+                  )}
                 </div>
               );
             })}
