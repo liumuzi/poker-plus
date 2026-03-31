@@ -227,7 +227,8 @@ export function transitionToNextStreet(
   bettingRound,
   potSize,
   cardsAdded,
-  playerCount
+  playerCount,
+  btnIndex = 0
 ) {
   const nextRound = bettingRound + 1;
   const newCommunityCards = [...communityCards, ...cardsAdded];
@@ -275,9 +276,8 @@ export function transitionToNextStreet(
     };
   }
 
-  // 翻后行动从 BTN 后一位（idx 1）开始，符合德州扑克规则
-  // findNextActor(0, p) 从 idx 1 开始搜索第一个可行动玩家
-  const nextActor = findNextActor(0, p);
+  // 翻后行动从 BTN 后一位开始（V2: BTN=0→从1; V1: BTN=playerCount-3→从SB）
+  const nextActor = findNextActor(btnIndex, p);
 
   return {
     players: p,

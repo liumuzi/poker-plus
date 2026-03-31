@@ -27,20 +27,20 @@ function getPresetCardsForStreet(street, presetCommunityCards) {
 export default function PlayScreen() {
   const {
     players, currentTurn, bettingRound, potSize, highestBet,
-    heroCards, communityCards, historySnapshots, isV2Mode,
+    heroCards, communityCards, historySnapshots,
     pickingCardsTarget, presetCommunityCards, savedFutureState,
     pickingFirstActor, dispatch,
   } = useGame();
 
-  // V2模式：公共牌已在设置阶段录入，街道转换直接使用预设牌，不再弹出录入界面
+  // 如有预设公共牌，街道转换直接使用，不再弹出录入界面
   useEffect(() => {
-    if (!isV2Mode || !pickingCardsTarget) return;
+    if (!pickingCardsTarget) return;
     const streetTargets = ['flop', 'turn', 'river'];
     if (!streetTargets.includes(pickingCardsTarget)) return;
 
     const cards = getPresetCardsForStreet(pickingCardsTarget, presetCommunityCards) ?? [];
     dispatch({ type: 'TRANSITION_STREET', payload: { cards } });
-  }, [isV2Mode, pickingCardsTarget, presetCommunityCards, dispatch]);
+  }, [pickingCardsTarget, presetCommunityCards, dispatch]);
 
   const activePlayer = players[currentTurn];
   if (!activePlayer) return null;
@@ -106,13 +106,11 @@ export default function PlayScreen() {
       {/* 顶部状态板 */}
       <div className="flex-none bg-slate-900 text-white px-4 pt-3 pb-3 z-20">
         {/* 流程导航 */}
-        {isV2Mode && (
-          <StageNavigation
-            currentStage={getCurrentStageName()}
-            onNavigate={handleNavigateToStage}
-            maxReachableStage={getMaxReachableStage()}
-          />
-        )}
+        <StageNavigation
+          currentStage={getCurrentStageName()}
+          onNavigate={handleNavigateToStage}
+          maxReachableStage={getMaxReachableStage()}
+        />
 
         {/* 操作按钮 + 状态信息 */}
         <div className="flex items-center justify-between mt-2">

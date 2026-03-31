@@ -224,6 +224,7 @@ function gameReducer(state, action) {
         highestBet: init.highestBet,
         bettingRound: 0,
         communityCards: [],
+        presetCommunityCards: state.presetCommunityCards,
         history: init.history,
         historySnapshots: [],
         winners: [],
@@ -231,6 +232,7 @@ function gameReducer(state, action) {
         stage: 'play',
         actionStage: 'preflop',
         savedFutureState: null,
+        pickingFirstActor: false,
       };
     }
 
@@ -562,13 +564,16 @@ function gameReducer(state, action) {
 
     case 'TRANSITION_STREET': {
       const snapshot = createSnapshot(state);
+      // V1: BTN = playerCount-3, 翻后从SB(playerCount-2)开始; V2: BTN=0, 从1开始
+      const btnIndex = state.isV2Mode ? 0 : state.playerCount - 3;
       const result = transitionToNextStreet(
         state.players,
         state.communityCards,
         state.bettingRound,
         state.potSize,
         action.payload.cards,
-        state.playerCount
+        state.playerCount,
+        btnIndex
       );
 
       let nextStage = state.stage;

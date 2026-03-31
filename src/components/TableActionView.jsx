@@ -8,7 +8,7 @@ import PokerCardMini from './PokerCardMini';
  */
 
 export default function TableActionView({ player, onAction }) {
-  const { players, currentTurn, highestBet, history, bettingRound, presetCommunityCards, dispatch } = useGame();
+  const { players, currentTurn, highestBet, history, bettingRound, presetCommunityCards, isV2Mode, playerCount, dispatch } = useGame();
 
   const dragX       = useMotionValue(0);
   const cardRotate  = useTransform(dragX, [-200, 0, 200], [-20, 0, 20]);
@@ -69,7 +69,8 @@ export default function TableActionView({ player, onAction }) {
 
           {players.map((p, index) => {
             const isActive = index === currentTurn;
-            const isBtn    = index === 0;
+            const btnIdx   = isV2Mode ? 0 : playerCount - 3;
+            const isBtn    = index === btnIdx;
             const pos      = getSeatPos(index, players.length);
             const lastAct  = lastActionMap[p.name];
             return (
