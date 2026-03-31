@@ -1,55 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useGame } from '../contexts/GameContext';
+import PokerCardMini from './PokerCardMini';
 
 /**
  * 桌面图 + 全区域滑动手势（虚化扑克牌动画）
  */
-const SUIT_DATA = [
-  { id: 's', s: '♠', color: 'text-slate-800' },
-  { id: 'h', s: '♥', color: 'text-red-500' },
-  { id: 'd', s: '♦', color: 'text-red-500' },
-  { id: 'c', s: '♣', color: 'text-slate-800' },
-];
-
-function MiniCard({ card, onClick, dim, index }) {
-  const data = card ? SUIT_DATA.find(x => x.id === card.suit) : null;
-  return (
-    <div
-      onClick={onClick}
-      className={`relative cursor-pointer transition-all duration-150 active:scale-95 select-none rounded-xl border
-        ${data ? 'bg-white border-slate-300 shadow-md hover:shadow-lg' : 'border-transparent hover:opacity-80'}
-        ${dim ? 'opacity-35' : ''}`}
-      style={{ width: '46px', aspectRatio: '5/7' }}
-    >
-      {data ? (
-        <>
-          {/* 左上角：rank */}
-          <div className={`absolute top-1 left-1.5 leading-none ${data.color}`}>
-            <div className="text-[13px] font-black leading-none">{card.rank}</div>
-          </div>
-          {/* 中心大花色 */}
-          <div className={`absolute inset-0 flex items-center justify-center text-[22px] leading-none ${data.color}`}>
-            {data.s}
-          </div>
-        </>
-      ) : (
-        <div className="absolute inset-0 rounded-xl overflow-hidden bg-red-700">
-          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id={`cross-play-${index}`} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="0" x2="10" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-                <line x1="10" y1="0" x2="0" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill={`url(#cross-play-${index})`}/>
-          </svg>
-          <div className="absolute inset-[4px] rounded-lg border border-white/30" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function TableActionView({ player, onAction }) {
   const { players, currentTurn, highestBet, history, bettingRound, presetCommunityCards, dispatch } = useGame();
@@ -100,9 +56,9 @@ export default function TableActionView({ player, onAction }) {
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex items-center gap-1.5">
               {[0, 1, 2, 3, 4].map(i => (
-                <MiniCard
+                <PokerCardMini
                   key={i}
-                  index={i}
+                  patternId={`play-${i}`}
                   card={presetCommunityCards?.[i] ?? null}
                   dim={(i < 3 && bettingRound < 1) || (i === 3 && bettingRound < 2) || (i === 4 && bettingRound < 3)}
                   onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}

@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
-import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
 import HorizontalTableDiagram from '../components/HorizontalTableDiagram';
+import PokerCardMini from '../components/PokerCardMini';
 
 /**
  * V2 配置界面 - 新的入池人数配置流程
  * 1. 选择flop入池人数 → 显示横向桌面图 → 点击设置Hero位置
  * 2. 录入Hero底牌 + 公共牌（预留拍照识别）
- * 3. 设置盲注
  */
 export default function SetupScreenV2() {
   const {
@@ -52,26 +51,6 @@ export default function SetupScreenV2() {
       case 1: return playerCount >= 2;
       case 2: return true;
       default: return false;
-    }
-  };
-
-  // 生成玩家名称（玩家1, 玩家2... Hero）
-  const generatePlayerNames = () => {
-    const names = [];
-    for (let i = 0; i < playerCount; i++) {
-      names.push(getPlayerDisplayName(i));
-    }
-    return names;
-  };
-
-  // 获取单个玩家显示名称（提取共用逻辑）
-  const getPlayerDisplayName = (index) => {
-    if (index === heroIndex) {
-      return 'Hero';
-    } else if (index === 0) {
-      return 'BTN';
-    } else {
-      return `玩家${index}`;
     }
   };
 
@@ -160,47 +139,15 @@ export default function SetupScreenV2() {
               <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 2</div>
               <div className="text-lg font-black text-slate-800 mb-4">手牌录入</div>
               <div className="flex justify-center gap-5">
-                {[{ target: 'hero1', card: heroCards[0] }, { target: 'hero2', card: heroCards[1] }].map(({ target, card }) => {
-                  const data = card ? (() => { const s = [{id:'s',s:'♠',color:'text-slate-800'},{id:'h',s:'♥',color:'text-red-500'},{id:'d',s:'♦',color:'text-red-500'},{id:'c',s:'♣',color:'text-slate-800'}].find(x=>x.id===card.suit); return s ? { symbol: s.s, rank: card.rank, colorClass: s.color } : null; })() : null;
-                  return (
-                    <div
-                      key={target}
-                      onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target } })}
-                      className={`relative cursor-pointer transition-all duration-150 active:scale-95 select-none
-                        w-[72px] rounded-2xl shadow-md border
-                        ${data ? 'bg-white border-slate-200 hover:shadow-lg' : 'border-transparent hover:opacity-80'}`}
-                      style={{ aspectRatio: '5/7' }}
-                    >
-                      {data ? (
-                        <>
-                          {/* 左上角 rank */}
-                          <div className={`absolute top-2 left-2.5 leading-none ${data.colorClass}`}>
-                            <div className="text-base font-black">{data.rank}</div>
-                          </div>
-                          {/* 中心大花色 */}
-                          <div className={`absolute inset-0 flex items-center justify-center text-4xl ${data.colorClass}`}>
-                            {data.symbol}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 rounded-2xl overflow-hidden bg-red-700">
-                          {/* 经典交叉斜线图案 */}
-                          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                              <pattern id={`cross-${target}`} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-                                <line x1="0" y1="0" x2="10" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-                                <line x1="10" y1="0" x2="0" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-                              </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill={`url(#cross-${target})`}/>
-                          </svg>
-                          {/* 白色内边框 */}
-                          <div className="absolute inset-[5px] rounded-xl border border-white/30" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {[{ target: 'hero1', card: heroCards[0] }, { target: 'hero2', card: heroCards[1] }].map(({ target, card }, idx) => (
+                  <PokerCardMini
+                    key={target}
+                    card={card}
+                    width={72}
+                    patternId={`setup-hero-${idx}`}
+                    onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target } })}
+                  />
+                ))}
               </div>
             </div>
 
@@ -208,47 +155,17 @@ export default function SetupScreenV2() {
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-4 uppercase">公共牌 (选填)</div>
               <div className="flex justify-center gap-2">
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const card = (presetCommunityCards || [])[i] || null;
-                  const data = card ? (() => { const s = [{id:'s',s:'♠',color:'text-slate-800'},{id:'h',s:'♥',color:'text-red-500'},{id:'d',s:'♦',color:'text-red-500'},{id:'c',s:'♣',color:'text-slate-800'}].find(x=>x.id===card.suit); return s ? { symbol: s.s, rank: card.rank, colorClass: s.color } : null; })() : null;
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
-                      className={`relative cursor-pointer transition-all duration-150 active:scale-95 select-none rounded-2xl shadow-md border
-                        ${data ? 'bg-white border-slate-200 hover:shadow-lg' : 'border-transparent hover:opacity-80'}`}
-                      style={{ width: '52px', aspectRatio: '5/7' }}
-                    >
-                      {data ? (
-                        <>
-                          {/* 左上角 rank */}
-                          <div className={`absolute top-1.5 left-2 leading-none ${data.colorClass}`}>
-                            <div className="text-xs font-black">{data.rank}</div>
-                          </div>
-                          {/* 中心大花色 */}
-                          <div className={`absolute inset-0 flex items-center justify-center text-2xl ${data.colorClass}`}>
-                            {data.symbol}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 rounded-2xl overflow-hidden bg-red-700">
-                          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                              <pattern id={`cross-c${i}`} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-                                <line x1="0" y1="0" x2="10" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-                                <line x1="10" y1="0" x2="0" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-                              </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill={`url(#cross-c${i})`}/>
-                          </svg>
-                          <div className="absolute inset-[4px] rounded-xl border border-white/30" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <PokerCardMini
+                    key={i}
+                    card={(presetCommunityCards || [])[i] || null}
+                    width={52}
+                    patternId={`setup-comm-${i}`}
+                    onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
+                  />
+                ))}
               </div>
-              
+
               {(presetCommunityCards || []).filter(Boolean).length > 0 && (
                 <div className="mt-4 text-center">
                   <button
@@ -259,7 +176,7 @@ export default function SetupScreenV2() {
                   </button>
                 </div>
               )}
-              
+
               <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <p className="text-xs text-amber-700">
                   💡 提示：未来版本将支持拍照识别公共牌
