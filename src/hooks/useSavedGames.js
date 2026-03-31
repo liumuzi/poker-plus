@@ -32,5 +32,11 @@ export function useSavedGames() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
-  return { savedGames, saveGame, deleteGame };
+  const updateGame = (id, patch) => {
+    const updated = savedGames.map((g) => g.id === id ? { ...g, ...patch } : g);
+    setSavedGames(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  };
+
+  return { savedGames, saveGame, deleteGame, updateGame };
 }

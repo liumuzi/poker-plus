@@ -201,6 +201,12 @@ export default function HomeScreen() {
                       删除
                     </button>
                   </div>
+                  {/* 备注预览 */}
+                  {game.gameNotes && game.gameNotes.trim() && (
+                    <div className="mt-1.5 text-[10px] text-slate-400 leading-snug line-clamp-2 pl-[63px] pr-2">
+                      {game.gameNotes.trim()}
+                    </div>
+                  )}
                 </div>
               );
             })}

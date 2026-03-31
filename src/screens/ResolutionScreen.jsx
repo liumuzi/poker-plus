@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGame } from '../contexts/GameContext';
 import CardDisplay from '../components/CardDisplay';
 import CardPicker from '../components/CardPicker';
@@ -8,6 +8,14 @@ export default function ResolutionScreen() {
 
   const activePlayers = players.filter((p) => !p.folded);
   const isShowdown = activePlayers.length > 1;
+
+  // 只剩1名玩家：自动获胜，无需确认
+  useEffect(() => {
+    if (activePlayers.length === 1) {
+      dispatch({ type: 'TOGGLE_WINNER', payload: { playerId: activePlayers[0].id } });
+      dispatch({ type: 'FINISH_HAND' });
+    }
+  }, []);
 
   const toggleWinner = (id) => {
     dispatch({ type: 'TOGGLE_WINNER', payload: { playerId: id } });

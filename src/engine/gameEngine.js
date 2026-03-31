@@ -172,6 +172,12 @@ export function processAction(players, currentTurn, potSize, highestBet, betting
  * @returns {{ ended, reason, nextStreet }}
  */
 export function checkRoundEnd(players, highestBet, bettingRound) {
+  // 最高优先级：非弃牌玩家只剩1人 → 立即结算（弃牌获胜）
+  const nonFolded = players.filter((p) => !p.folded);
+  if (nonFolded.length <= 1) {
+    return { ended: true, reason: 'resolution', nextStreet: null };
+  }
+
   const activePlayers = players.filter((p) => !p.folded && !p.allIn);
   const unresolved = activePlayers.filter(
     (p) => !p.actedThisRound || p.betThisRound < highestBet
@@ -181,7 +187,8 @@ export function checkRoundEnd(players, highestBet, bettingRound) {
     return { ended: false, reason: null, nextStreet: null };
   }
 
-  const standingCount = activePlayers.length + players.filter((p) => p.allIn && !p.folded).length;
+  // 所有可行动玩家已行动且下注齐平
+  const standingCount = nonFolded.length;
 
   if (standingCount <= 1) {
     return { ended: true, reason: 'resolution', nextStreet: null };
@@ -268,11 +275,9 @@ export function transitionToNextStreet(
     };
   }
 
-  // 正常：翻后从第一个位置开始搜索第一个可行动玩家（跳过 folded 和 all-in 玩家）
-  // 修复 Bug #7：使用 -1 作为起始位置，因为 findNextActor 函数会做 (currentIdx + 1) % length，
-  // 所以传入 -1 会使得搜索从位置 0 开始，确保能找到第一个可以行动的玩家，
-  // 而不是从原来的 playerCount-3 位置开始（那样可能会跳过前面的可行动玩家）
-  const nextActor = findNextActor(-1, p);
+  // 翻后行动从 BTN 后一位（idx 1）开始，符合德州扑克规则
+  // findNextActor(0, p) 从 idx 1 开始搜索第一个可行动玩家
+  const nextActor = findNextActor(0, p);
 
   return {
     players: p,

@@ -10,6 +10,7 @@ export function createSnapshot(state) {
     bettingRound: state.bettingRound,
     highestBet: state.highestBet,
     potSize: state.potSize,
+    pickingFirstActor: state.pickingFirstActor ?? false,
   };
 }
 
@@ -25,5 +26,6 @@ export function restoreSnapshot(snapshot) {
     bettingRound: snapshot.bettingRound,
     highestBet: snapshot.highestBet,
     potSize: snapshot.potSize,
+    pickingFirstActor: snapshot.pickingFirstActor ?? false,
   };
 }

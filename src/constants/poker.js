@@ -18,9 +18,12 @@ export const ROUND_NAMES = [
 ];
 
 export function getPositions(count) {
-  if (count === 4) return ['CO', 'BTN', 'SB', 'BB'];
-  if (count === 6) return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-  if (count === 8) return ['UTG', 'UTG+1', 'UTG+2', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-  if (count === 9) return ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 4)  return ['CO', 'BTN', 'SB', 'BB'];
+  if (count === 5)  return ['UTG', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 6)  return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 7)  return ['UTG', 'UTG+1', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 8)  return ['UTG', 'UTG+1', 'UTG+2', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 9)  return ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  if (count === 10) return ['UTG', 'UTG+1', 'UTG+2', 'UTG+3', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   return Array.from({ length: count }, (_, i) => `位置 ${i + 1}`);
 }

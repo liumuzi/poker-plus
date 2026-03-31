@@ -13,10 +13,10 @@ import HorizontalTableDiagram from '../components/HorizontalTableDiagram';
  */
 export default function SetupScreenV2() {
   const {
-    playerCount, heroIndex, heroCards, sbAmount, bbAmount, presetCommunityCards, dispatch,
+    playerCount, heroIndex, heroCards, presetCommunityCards, dispatch,
   } = useGame();
 
-  const [step, setStep] = useState(1); // 1: 人数+Hero位置, 2: 底牌+公共牌, 3: 盲注
+  const [step, setStep] = useState(1); // 1: 人数+Hero位置, 2: 底牌+公共牌
 
   const handleAbandonSetup = () => {
     if (!confirm('确认放弃当前配置并返回首页吗？')) return;
@@ -32,7 +32,7 @@ export default function SetupScreenV2() {
   };
 
   const handleNextStep = () => {
-    if (step < 3) {
+    if (step < 2) {
       setStep(step + 1);
     }
   };
@@ -50,8 +50,7 @@ export default function SetupScreenV2() {
   const canProceed = () => {
     switch (step) {
       case 1: return playerCount >= 2;
-      case 2: return true; // 底牌和公共牌都选填
-      case 3: return sbAmount > 0 && bbAmount > 0;
+      case 2: return true;
       default: return false;
     }
   };
@@ -93,7 +92,7 @@ export default function SetupScreenV2() {
         
         {/* 步骤指示器 */}
         <div className="flex justify-center space-x-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2].map((s) => (
             <div
               key={s}
               className={`w-2 h-2 rounded-full transition-all ${
@@ -121,7 +120,7 @@ export default function SetupScreenV2() {
               </p>
               
               <div className="grid grid-cols-5 gap-2">
-                {[2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                   <button
                     key={num}
                     onClick={() => handleSelectPlayerCount(num)}
@@ -159,48 +158,91 @@ export default function SetupScreenV2() {
             {/* Hero底牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 2</div>
-              <div className="text-lg font-black text-slate-800 mb-4">录入手牌信息 (选填)</div>
-              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">Hero底牌</div>
-              <div className="flex justify-center space-x-4">
-                <div
-                  onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: 'hero1' } })}
-                  className="w-16 h-22 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-2xl cursor-pointer bg-slate-50 hover:bg-slate-100"
-                >
-                  <CardDisplay card={heroCards[0]} />
-                </div>
-                <div
-                  onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: 'hero2' } })}
-                  className="w-16 h-22 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-2xl cursor-pointer bg-slate-50 hover:bg-slate-100"
-                >
-                  <CardDisplay card={heroCards[1]} />
-                </div>
+              <div className="text-lg font-black text-slate-800 mb-4">手牌录入</div>
+              <div className="flex justify-center gap-5">
+                {[{ target: 'hero1', card: heroCards[0] }, { target: 'hero2', card: heroCards[1] }].map(({ target, card }) => {
+                  const data = card ? (() => { const s = [{id:'s',s:'♠',color:'text-slate-800'},{id:'h',s:'♥',color:'text-red-500'},{id:'d',s:'♦',color:'text-red-500'},{id:'c',s:'♣',color:'text-slate-800'}].find(x=>x.id===card.suit); return s ? { symbol: s.s, rank: card.rank, colorClass: s.color } : null; })() : null;
+                  return (
+                    <div
+                      key={target}
+                      onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target } })}
+                      className={`relative cursor-pointer transition-all duration-150 active:scale-95 select-none
+                        w-[72px] rounded-2xl shadow-md border
+                        ${data ? 'bg-white border-slate-200 hover:shadow-lg' : 'border-transparent hover:opacity-80'}`}
+                      style={{ aspectRatio: '5/7' }}
+                    >
+                      {data ? (
+                        <>
+                          {/* 左上角 rank */}
+                          <div className={`absolute top-2 left-2.5 leading-none ${data.colorClass}`}>
+                            <div className="text-base font-black">{data.rank}</div>
+                          </div>
+                          {/* 中心大花色 */}
+                          <div className={`absolute inset-0 flex items-center justify-center text-4xl ${data.colorClass}`}>
+                            {data.symbol}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden bg-red-700">
+                          {/* 经典交叉斜线图案 */}
+                          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                              <pattern id={`cross-${target}`} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+                                <line x1="0" y1="0" x2="10" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+                                <line x1="10" y1="0" x2="0" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill={`url(#cross-${target})`}/>
+                          </svg>
+                          {/* 白色内边框 */}
+                          <div className="absolute inset-[5px] rounded-xl border border-white/30" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* 公共牌 */}
             <div className="bg-white rounded-[2rem] shadow-sm p-6">
               <div className="text-xs font-bold text-slate-400 mb-4 uppercase">公共牌 (选填)</div>
-              <p className="text-sm text-slate-500 mb-4">
-                如果已知公共牌，可以在这里提前录入。也可以在游戏过程中录入。
-              </p>
-              
-              <div className="flex justify-center space-x-2 p-4 bg-emerald-900 rounded-xl">
+              <div className="flex justify-center gap-2">
                 {[0, 1, 2, 3, 4].map((i) => {
                   const card = (presetCommunityCards || [])[i] || null;
+                  const data = card ? (() => { const s = [{id:'s',s:'♠',color:'text-slate-800'},{id:'h',s:'♥',color:'text-red-500'},{id:'d',s:'♦',color:'text-red-500'},{id:'c',s:'♣',color:'text-slate-800'}].find(x=>x.id===card.suit); return s ? { symbol: s.s, rank: card.rank, colorClass: s.color } : null; })() : null;
                   return (
                     <div
                       key={i}
                       onClick={() => dispatch({ type: 'SET_PICKING_TARGET', payload: { target: `community_${i}` } })}
-                      className={`w-12 h-16 border-2 rounded-lg flex items-center justify-center text-lg cursor-pointer transition-all ${
-                        card 
-                          ? 'border-emerald-400 bg-white' 
-                          : 'border-dashed border-emerald-600 bg-emerald-800/50 hover:bg-emerald-700/50'
-                      }`}
+                      className={`relative cursor-pointer transition-all duration-150 active:scale-95 select-none rounded-2xl shadow-md border
+                        ${data ? 'bg-white border-slate-200 hover:shadow-lg' : 'border-transparent hover:opacity-80'}`}
+                      style={{ width: '52px', aspectRatio: '5/7' }}
                     >
-                      {card ? (
-                        <CardDisplay card={card} />
+                      {data ? (
+                        <>
+                          {/* 左上角 rank */}
+                          <div className={`absolute top-1.5 left-2 leading-none ${data.colorClass}`}>
+                            <div className="text-xs font-black">{data.rank}</div>
+                          </div>
+                          {/* 中心大花色 */}
+                          <div className={`absolute inset-0 flex items-center justify-center text-2xl ${data.colorClass}`}>
+                            {data.symbol}
+                          </div>
+                        </>
                       ) : (
-                        <span className="text-emerald-400">+</span>
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden bg-red-700">
+                          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                              <pattern id={`cross-c${i}`} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+                                <line x1="0" y1="0" x2="10" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+                                <line x1="10" y1="0" x2="0" y2="10" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill={`url(#cross-c${i})`}/>
+                          </svg>
+                          <div className="absolute inset-[4px] rounded-xl border border-white/30" />
+                        </div>
                       )}
                     </div>
                   );
@@ -227,64 +269,6 @@ export default function SetupScreenV2() {
           </div>
         )}
 
-        {/* Step 3: 盲注设置 */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-2 uppercase">Step 3</div>
-              <div className="text-lg font-black text-slate-800 mb-4">设定盲注大小</div>
-              
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <label className="block text-[10px] font-black text-slate-400 mb-2">小盲 (SB)</label>
-                  <input
-                    type="number"
-                    pattern="[0-9]*"
-                    value={sbAmount === 0 ? '' : sbAmount}
-                    onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { sb: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-[10px] font-black text-slate-400 mb-2">大盲 (BB)</label>
-                  <input
-                    type="number"
-                    pattern="[0-9]*"
-                    value={bbAmount === 0 ? '' : bbAmount}
-                    onChange={(e) => dispatch({ type: 'SET_BLINDS', payload: { bb: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 配置预览 */}
-            <div className="bg-white rounded-[2rem] shadow-sm p-6">
-              <div className="text-xs font-bold text-slate-400 mb-4 uppercase">配置预览</div>
-              
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">入池人数</span>
-                  <span className="font-bold text-slate-800">{playerCount}人</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">Hero位置</span>
-                  <span className="font-bold text-slate-800">{getPlayerDisplayName(heroIndex)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500">盲注</span>
-                  <span className="font-bold text-slate-800">{sbAmount}/{bbAmount}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-500">玩家</span>
-                  <span className="font-bold text-slate-800 text-xs">
-                    {generatePlayerNames().join(', ')}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 底部操作按钮 */}
@@ -299,7 +283,7 @@ export default function SetupScreenV2() {
             </button>
           )}
           
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={handleNextStep}
               disabled={!canProceed()}
@@ -314,12 +298,7 @@ export default function SetupScreenV2() {
           ) : (
             <button
               onClick={handleStartGame}
-              disabled={!canProceed()}
-              className={`flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-all ${
-                canProceed()
-                  ? 'bg-emerald-500 text-white active:scale-[0.98] shadow-lg'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
+              className="flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-all bg-emerald-500 text-white active:scale-[0.98] shadow-lg"
             >
               开始复盘 <ChevronRight className="ml-2 w-5 h-5" />
             </button>

@@ -22,8 +22,8 @@ export default function SetupScreen() {
       {/* 人数选择 */}
       <div className="bg-white rounded-[2rem] shadow-sm p-6 mb-4">
         <div className="text-xs font-bold text-slate-400 mb-4 uppercase">1. 选择桌上人数</div>
-        <div className="grid grid-cols-4 gap-2">
-          {[4, 6, 8, 9].map((num) => (
+        <div className="grid grid-cols-5 gap-2">
+          {[4, 5, 6, 7, 8, 9, 10].map((num) => (
             <button
               key={num}
               onClick={() => dispatch({ type: 'SET_PLAYER_COUNT', payload: { count: num } })}
