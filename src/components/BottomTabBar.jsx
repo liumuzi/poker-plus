@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { BookOpen, Calculator, Plus, BarChart2, User } from 'lucide-react';
 
 const TABS = [
@@ -17,7 +16,6 @@ export default function BottomTabBar({ activeTab, onTabChange }) {
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2500);
   };
 
   const handlePress = (tab) => {
@@ -30,18 +28,16 @@ export default function BottomTabBar({ activeTab, onTabChange }) {
 
   return (
     <>
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white text-sm px-5 py-2.5 rounded-full shadow-xl border border-slate-700 whitespace-nowrap"
+      {toast && (
+        <div className="fixed bottom-24 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div
+            className="bg-slate-800 text-white text-sm px-5 py-2.5 rounded-full shadow-xl border border-slate-700 whitespace-nowrap pointer-events-auto animate-toast"
+            onAnimationEnd={() => setToast(null)}
           >
             {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       <div
         className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto"

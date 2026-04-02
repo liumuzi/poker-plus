@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif'],
         display: ['"Bebas Neue"', 'sans-serif'], // 数字/金额/大标题
-        body: ['Inter', 'sans-serif'],           // 正文
       },
       colors: {
         // 牌桌深色系 Design Tokens
@@ -27,6 +27,17 @@ export default {
         chip: {
           gold: '#f5c64b',      // Hero 动作 / 高亮金色
           'gold-dark': '#dbb142', // Hero 气泡边框
+        },
+      },
+      animation: {
+        toast: 'toast 2.5s ease-out forwards',
+      },
+      keyframes: {
+        toast: {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '12%': { opacity: '1', transform: 'translateY(0)' },
+          '88%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { opacity: '0', transform: 'translateY(16px)' },
         },
       },
     },
