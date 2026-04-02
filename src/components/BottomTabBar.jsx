@@ -31,7 +31,7 @@ export default function BottomTabBar({ activeTab, onTabChange }) {
       {toast && (
         <div className="fixed bottom-24 inset-x-0 z-50 flex justify-center pointer-events-none">
           <div
-            className="bg-slate-800 text-white text-sm px-5 py-2.5 rounded-full shadow-xl border border-slate-700 whitespace-nowrap pointer-events-auto animate-toast"
+            className="bg-slate-800 text-white text-sm px-5 py-2.5 rounded-full shadow-xl border border-slate-700 whitespace-nowrap animate-toast"
             onAnimationEnd={() => setToast(null)}
           >
             {toast}

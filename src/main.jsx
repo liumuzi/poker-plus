@@ -14,7 +14,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 
 // 延迟加载非关键字体权重 — 首屏渲染后异步加载，减少初始传输体积
-setTimeout(() => {
+const deferFonts = () => {
   import('@fontsource/inter/latin-600.css')
   import('@fontsource/inter/latin-900.css')
-}, 100)
+}
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(deferFonts, { timeout: 2000 })
+} else {
+  setTimeout(deferFonts, 100)
+}

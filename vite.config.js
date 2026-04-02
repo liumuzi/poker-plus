@@ -18,7 +18,7 @@ function fontPreloadPlugin() {
           if (fileName.endsWith('.woff2') && criticalPatterns.some(p => fileName.includes(p))) {
             tags.push({
               tag: 'link',
-              attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: '/' + fileName, crossorigin: true },
+              attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: '/' + fileName, crossorigin: '' },
               injectTo: 'head-prepend',
             });
           }
