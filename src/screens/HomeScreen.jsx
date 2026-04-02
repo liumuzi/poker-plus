@@ -1,12 +1,24 @@
 import React from 'react';
-import { Play } from 'lucide-react';
+import { Play, Zap, Keyboard, Mic } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { useSavedGames } from '../hooks/useSavedGames';
 import { SUITS } from '../constants/poker';
 
+const RECORD_MODES = (handleNewGame, handleNewGameV2) => [
+  { id: 'full',      title: '全量复盘', subtitle: '完整记录每一个行动', Icon: Play,     available: true,  onClick: handleNewGame    },
+  { id: 'quick',     title: '快捷复盘', subtitle: '入池人数快速配置',   Icon: Zap,      available: true,  onClick: handleNewGameV2  },
+  { id: 'shorthand', title: '专业简记', subtitle: '输入简记法自动解析', Icon: Keyboard, available: false, onClick: () => {} },
+  { id: 'voice',     title: '语音输入', subtitle: '语音转录牌局记录',   Icon: Mic,      available: false, onClick: () => {} },
+];
+
 export default function HomeScreen() {
   const { dispatch } = useGame();
   const { savedGames, deleteGame } = useSavedGames();
+
+  const handleNewGame = () => dispatch({ type: 'RESET_FOR_NEW_GAME' });
+  const handleNewGameV2 = () => dispatch({ type: 'RESET_FOR_NEW_GAME_V2' });
+
+  const handleLoadSave = (game) => dispatch({ type: 'LOAD_SAVED_GAME', payload: { game } });
 
   const getGameSummary = (game) => {
     const hero = game.players?.find((p) => p.isHero);
@@ -27,11 +39,7 @@ export default function HomeScreen() {
     const net = wonShare - heroInvested;
     const heroCards = game.heroCards || (hero && hero.knownCards) || [];
 
-    return {
-      net,
-      community,
-      heroCards,
-    };
+    return { net, community, heroCards };
   };
 
   const formatCompactCard = (card) => {
@@ -39,89 +47,39 @@ export default function HomeScreen() {
     return `${suit}${card?.rank || '?'}`;
   };
 
-  const handleNewGame = () => {
-    dispatch({ type: 'RESET_FOR_NEW_GAME' });
-  };
-
-  const handleNewGameV2 = () => {
-    dispatch({ type: 'RESET_FOR_NEW_GAME_V2' });
-  };
-
-  const handleLoadSave = (game) => {
-    dispatch({ type: 'LOAD_SAVED_GAME', payload: { game } });
-  };
-
-  const handleLoadTestCase = () => {
-    dispatch({
-      type: 'LOAD_TEST_CASE',
-      payload: {
-        potSize: 72,
-        sbAmount: 1,
-        bbAmount: 2,
-        players: [
-          { id: 1, name: 'imafish', isHero: false, knownCards: [null, null] },
-          { id: 2, name: 'Nikola..', isHero: false, knownCards: [null, null] },
-          { id: 3, name: 'rd8121', isHero: false, knownCards: [null, null] },
-          { id: 4, name: 'Godz1lla', isHero: false, knownCards: [null, null] },
-          { id: 5, name: 'moq66', isHero: false, knownCards: [null, null] },
-          { id: 6, name: 'Lucife..', isHero: true, knownCards: [{ rank: 'J', suit: 's' }, { rank: 'T', suit: 's' }] },
-        ],
-        communityCards: [
-          { rank: '9', suit: 'd' }, { rank: '5', suit: 'c' }, { rank: '7', suit: 's' },
-          { rank: '8', suit: 'h' }, { rank: 'K', suit: 'h' },
-        ],
-        history: [
-          { player: 'Lucife..', action: '小盲 $1', pot: 1, isHero: true },
-          { player: 'moq66', action: '大盲 $2', pot: 3, isHero: false },
-          { isDivider: true, text: '--- 进入 翻前 ---', cards: [] },
-          { player: 'imafish', action: 'Fold', pot: 3, isHero: false },
-          { player: 'Nikola..', action: 'Fold', pot: 3, isHero: false },
-          { player: 'rd8121', action: 'Call 2', pot: 5, isHero: false },
-          { player: 'Godz1lla', action: 'Fold', pot: 5, isHero: false },
-          { player: 'Lucife..', action: 'Raise to 8', pot: 12, isHero: true },
-          { player: 'moq66', action: 'Fold', pot: 12, isHero: false },
-          { player: 'rd8121', action: 'Call 6', pot: 18, isHero: false },
-          { isDivider: true, text: '--- 进入 Flop ---', cards: [{ rank: '9', suit: 'd' }, { rank: '5', suit: 'c' }, { rank: '7', suit: 's' }] },
-          { player: 'Lucife..', action: 'Check', pot: 18, isHero: true },
-          { player: 'rd8121', action: 'Raise to 9', pot: 27, isHero: false },
-          { player: 'Lucife..', action: 'Raise to 27', pot: 45, isHero: true },
-          { player: 'rd8121', action: 'Call 18', pot: 72, isHero: false },
-          { isDivider: true, text: '--- 进入 Turn ---', cards: [{ rank: '8', suit: 'h' }] },
-          { player: 'Lucife..', action: 'Raise to 36', pot: 108, isHero: true },
-          { player: 'rd8121', action: 'Fold', pot: 108, isHero: false },
-          { isDivider: true, text: '--- 结算 ---', cards: [] },
-          { player: '👑', action: 'Lucife.. 获胜 $72', isWinLog: true },
-        ],
-      },
-    });
-  };
+  const modes = RECORD_MODES(handleNewGame, handleNewGameV2);
 
   return (
-    <div className="flex flex-col items-center min-h-screen p-6 bg-felt-700 text-white select-none">
-      <div className="flex-1 flex flex-col items-center justify-center w-full mt-10">
-        <h1 className="text-7xl font-display mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
+    <div className="flex flex-col min-h-screen bg-felt-700 text-white select-none pb-20">
+      {/* Logo */}
+      <div className="flex flex-col items-center justify-center pt-16 pb-8">
+        <h1 className="text-6xl font-display tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
           Poker+
         </h1>
-        <p className="text-slate-400 mb-12 tracking-widest text-sm text-center">
-          专业错题本 • 真德扑状态机复盘
+        <p className="text-slate-400 text-sm tracking-widest mt-1 text-center">
+          专业错题本 · 真德扑状态机复盘
         </p>
-        <button
-          onClick={handleNewGame}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-blue-500/50 active:scale-95 transition-transform mb-3"
-        >
-          <Play size={20} className="fill-current" />
-          <span>新建复盘牌局</span>
-        </button>
-        <button
-          onClick={handleNewGameV2}
-          className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-emerald-500/50 active:scale-95 transition-transform mb-4"
-        >
-          <Play size={20} className="fill-current" />
-          <span>新建快捷复盘</span>
-        </button>
       </div>
 
-      <div className="w-full max-w-sm pb-10">
+      {/* 记录模式选择 */}
+      <div className="px-4 mb-6">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">选择记录模式</p>
+        <div className="grid grid-cols-2 gap-2">
+          {modes.map(({ id, title, Icon, available, onClick }) => (
+            <button
+              key={id}
+              onClick={onClick}
+              className={`flex items-center gap-3 bg-gray-800 rounded-2xl px-5 py-4 active:bg-gray-700 transition-colors ${!available ? 'opacity-50' : ''}`}
+            >
+              <Icon size={20} color="white" strokeWidth={1.8} />
+              <span className="text-white font-bold text-base leading-none">{title}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 本地存档列表 */}
+      <div className="px-4 pb-6">
         <h3 className="text-lg font-bold text-slate-300 mb-4 border-b border-felt-300 pb-2">
           本地存档记录 ({savedGames.length})
         </h3>
@@ -132,17 +90,9 @@ export default function HomeScreen() {
             {savedGames.map((game) => {
               const summary = getGameSummary(game);
               const borderClass =
-                summary.net > 0
-                  ? 'border-emerald-400'
-                  : summary.net < 0
-                    ? 'border-rose-400'
-                    : 'border-slate-600';
+                summary.net > 0 ? 'border-emerald-400' : summary.net < 0 ? 'border-rose-400' : 'border-slate-600';
               const netClass =
-                summary.net > 0
-                  ? 'text-emerald-300'
-                  : summary.net < 0
-                    ? 'text-rose-300'
-                    : 'text-slate-300';
+                summary.net > 0 ? 'text-emerald-300' : summary.net < 0 ? 'text-rose-300' : 'text-slate-300';
 
               return (
                 <div
@@ -152,42 +102,43 @@ export default function HomeScreen() {
                 >
                   <div className="flex items-center justify-between gap-1">
                     <div className="shrink-0 w-[55px] pt-1 pb-1 flex flex-col justify-center">
-                      <div className="text-[10px] text-slate-400 font-mono truncate mb-1">{game.date ? game.date.split(' ')[0] : ''}</div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate mb-1">
+                        {game.date ? game.date.split(' ')[0] : ''}
+                      </div>
                       <div className={`text-base font-black ${netClass}`}>
                         {summary.net >= 0 ? '+' : ''}{Math.round(summary.net)}
                       </div>
                     </div>
-<div className="flex-1 min-w-0 flex flex-col gap-[7px] py-[3px]">
-                        <div className="flex items-start gap-2">
-                          <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">手牌</div>
-                          <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
-                            {summary.heroCards && summary.heroCards.filter(Boolean).length > 0 ? (
-                              summary.heroCards.filter(Boolean).map((card, idx) => (
-                                <span key={`hero-${game.id}-${idx}`} className="text-[10px] bg-indigo-900 border border-indigo-700 text-indigo-100 px-1 py-0.5 rounded">
-                                  {formatCompactCard(card)}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[10px] text-slate-500 leading-[18px]">—</span>
-                            )}
-                          </div>
+                    <div className="flex-1 min-w-0 flex flex-col gap-[7px] py-[3px]">
+                      <div className="flex items-start gap-2">
+                        <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">手牌</div>
+                        <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
+                          {summary.heroCards && summary.heroCards.filter(Boolean).length > 0 ? (
+                            summary.heroCards.filter(Boolean).map((card, idx) => (
+                              <span key={`hero-${game.id}-${idx}`} className="text-[10px] bg-indigo-900 border border-indigo-700 text-indigo-100 px-1 py-0.5 rounded">
+                                {formatCompactCard(card)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-500 leading-[18px]">—</span>
+                          )}
                         </div>
-                        <div className="flex items-start gap-2">
-                          <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">公共牌</div>
-                          <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
-                            {summary.community.length === 0 ? (
-                              <span className="text-[10px] text-slate-500 leading-[18px]">未发牌</span>
-                            ) : (
-                              summary.community.map((card, idx) => (
-                                <span key={`${game.id}-${idx}`} className="text-[10px] bg-slate-700 text-slate-200 px-1 py-0.5 rounded">
-                                  {formatCompactCard(card)}
-                                </span>
-                              ))
-                            )}
-                          </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="text-[10px] text-slate-500 w-9 shrink-0 leading-[18px]">公共牌</div>
+                        <div className="flex flex-row overflow-hidden gap-[3px] min-h-[18px] pl-0.5">
+                          {summary.community.length === 0 ? (
+                            <span className="text-[10px] text-slate-500 leading-[18px]">未发牌</span>
+                          ) : (
+                            summary.community.map((card, idx) => (
+                              <span key={`${game.id}-${idx}`} className="text-[10px] bg-slate-700 text-slate-200 px-1 py-0.5 rounded">
+                                {formatCompactCard(card)}
+                              </span>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </div>
-
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteGame(game.id); }}
                       className="text-red-400 text-[10px] px-2 py-1 bg-red-400/10 rounded-md hover:bg-red-400/20 active:scale-95 shrink-0"
@@ -195,7 +146,6 @@ export default function HomeScreen() {
                       删除
                     </button>
                   </div>
-                  {/* 备注预览 */}
                   {game.gameNotes && game.gameNotes.trim() && (
                     <div className="mt-1.5 text-[10px] text-slate-400 leading-snug line-clamp-2 pl-[63px] pr-2">
                       {game.gameNotes.trim()}
