@@ -20,7 +20,7 @@ export default defineConfig({
               return 'vendor-motion';
             }
             // Core React runtime
-            if (id.includes('react-dom') || id.includes('/react/')) {
+            if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
               return 'vendor-react';
             }
           }

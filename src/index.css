@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 字体加载优化：使用 swap 避免字体加载阻塞页面渲染 */
-@font-face { font-family: 'Inter'; font-display: swap; }
-@font-face { font-family: 'Bebas Neue'; font-display: swap; }
-
 body {
   background-color: #0f172a;
   /* 禁用移动端下拉刷新和默认手势，保证滑动组件的丝滑体验 */
