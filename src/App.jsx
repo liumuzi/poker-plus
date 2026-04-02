@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { GameProvider, useGame } from './contexts/GameContext';
 import HomeScreen from './screens/HomeScreen';
-import SetupScreen from './screens/SetupScreen';
-import SetupScreenV2 from './screens/SetupScreenV2';
-import PlayScreen from './screens/PlayScreen';
-import ResolutionScreen from './screens/ResolutionScreen';
-import SummaryScreen from './screens/SummaryScreen';
-import ToolsScreen from './screens/ToolsScreen';
-import LedgerScreen from './screens/LedgerScreen';
-import TableLedgerScreen from './screens/TableLedgerScreen';
-import EquityScreen from './screens/EquityScreen';
 import BottomTabBar from './components/BottomTabBar';
+
+// Lazy-loaded screens — only downloaded when the user navigates to them
+const SetupScreen = lazy(() => import('./screens/SetupScreen'));
+const SetupScreenV2 = lazy(() => import('./screens/SetupScreenV2'));
+const PlayScreen = lazy(() => import('./screens/PlayScreen'));
+const ResolutionScreen = lazy(() => import('./screens/ResolutionScreen'));
+const SummaryScreen = lazy(() => import('./screens/SummaryScreen'));
+const ToolsScreen = lazy(() => import('./screens/ToolsScreen'));
+const LedgerScreen = lazy(() => import('./screens/LedgerScreen'));
+const TableLedgerScreen = lazy(() => import('./screens/TableLedgerScreen'));
+const EquityScreen = lazy(() => import('./screens/EquityScreen'));
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-900">
+      <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function AppRouter() {
   const { stage } = useGame();
@@ -40,12 +50,14 @@ function AppRouter() {
 
   return (
     <div className="font-sans max-w-md mx-auto relative bg-slate-900 border-x border-slate-800 min-h-screen shadow-2xl overflow-hidden">
-      {isHome && renderHomeContent()}
-      {stage === 'setup'      && <SetupScreen />}
-      {stage === 'setupV2'    && <SetupScreenV2 />}
-      {stage === 'play'       && <PlayScreen />}
-      {stage === 'resolution' && <ResolutionScreen />}
-      {stage === 'summary'    && <SummaryScreen />}
+      <Suspense fallback={<LoadingFallback />}>
+        {isHome && renderHomeContent()}
+        {stage === 'setup'      && <SetupScreen />}
+        {stage === 'setupV2'    && <SetupScreenV2 />}
+        {stage === 'play'       && <PlayScreen />}
+        {stage === 'resolution' && <ResolutionScreen />}
+        {stage === 'summary'    && <SummaryScreen />}
+      </Suspense>
       {isHome && <BottomTabBar activeTab={activeTab} onTabChange={handleTabChange} />}
     </div>
   );

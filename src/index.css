@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #f8fafc;
+  background-color: #0f172a;
   /* 禁用移动端下拉刷新和默认手势，保证滑动组件的丝滑体验 */
   overscroll-behavior-y: none;
   -webkit-touch-callout: none;
