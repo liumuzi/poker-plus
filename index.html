@@ -6,9 +6,26 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <title>Poker+ (MVP Demo)</title>
+    <!-- 首屏关键样式：在 JS 加载前立即显示深色背景和加载动画，避免白屏 -->
+    <style>
+      body { margin: 0; background: #0f172a; }
+      #root-loader {
+        display: flex; align-items: center; justify-content: center;
+        height: 100vh; background: #0f172a;
+      }
+      #root-loader .spinner {
+        width: 32px; height: 32px;
+        border: 2px solid #34d399; border-top-color: transparent;
+        border-radius: 50%; animation: spin .6s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- 首屏加载指示器 — React hydrate 后自动替换 -->
+      <div id="root-loader"><div class="spinner"></div></div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
