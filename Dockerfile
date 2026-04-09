@@ -3,6 +3,14 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
+# 定义构建时环境变量（Vite 需要在构建时嵌入这些值）
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+# 设置环境变量供 npm run build 使用
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+
 # 复制 package.json 和 package-lock.json
 COPY poker-plus/package*.json ./
 

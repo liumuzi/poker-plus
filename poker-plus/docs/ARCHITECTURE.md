@@ -436,3 +436,41 @@ export function parseAction(actionStr) → string[]
 ### 新增 UI 组件
 1. 在 `src/components/` 创建组件，保持无副作用（通过 props/callbacks 通信）。
 2. 更新本文档的组件树。
+
+---
+
+## 九、部署指南
+
+### 环境变量配置
+
+应用需要以下 Supabase 环境变量才能正常运行：
+
+| 变量名 | 说明 |
+|--------|------|
+| `VITE_SUPABASE_URL` | Supabase 项目 URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase 匿名公钥 |
+
+**本地开发**：在项目根目录创建 `.env` 文件（参考 `.env.example`）。
+
+### Docker 部署
+
+由于 Vite 在构建时将环境变量嵌入到 JS 文件中，需要在 `docker build` 时传入这些变量：
+
+```bash
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://your-project.supabase.co \
+  --build-arg VITE_SUPABASE_ANON_KEY=your-anon-key \
+  -t poker-plus .
+```
+
+然后运行：
+
+```bash
+docker run -d -p 3000:80 poker-plus
+```
+
+### 常见问题
+
+**问题：部署后显示白屏，控制台报错 `supabaseUrl is required`**
+
+原因：构建时未传入 Supabase 环境变量。请确保在 `docker build` 命令中使用 `--build-arg` 传入必需的环境变量。
