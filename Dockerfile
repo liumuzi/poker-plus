@@ -4,13 +4,13 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # 复制 package.json 和 package-lock.json
-COPY package*.json ./
+COPY poker-plus/package*.json ./
 
 # 安装依赖
 RUN npm install
 
 # 复制源代码并构建
-COPY . .
+COPY poker-plus/ .
 RUN npm run build
 
 # 生产运行阶段
