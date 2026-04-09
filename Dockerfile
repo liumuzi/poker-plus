@@ -4,6 +4,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # 定义构建时环境变量（Vite 需要在构建时嵌入这些值）
+# 这些是可选的，如果不提供，将在运行时通过 env-config.js 注入
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 
@@ -31,8 +32,12 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # 从 builder 阶段复制，因为多阶段构建的第二阶段无法直接访问构建上下文
 COPY --from=builder /app/nginx.conf /etc/nginx/conf.d/default.conf
 
+# 复制启动脚本
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # 暴露 80 端口
 EXPOSE 80
 
-# 启动 Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# 使用启动脚本（在运行时注入环境变量）
+ENTRYPOINT ["/docker-entrypoint.sh"]

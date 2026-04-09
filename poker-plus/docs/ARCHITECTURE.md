@@ -454,18 +454,35 @@ export function parseAction(actionStr) → string[]
 
 ### Docker 部署
 
-由于 Vite 在构建时将环境变量嵌入到 JS 文件中，需要在 `docker build` 时传入这些变量：
+支持两种方式配置环境变量：
+
+#### 方式一：运行时环境变量（推荐，适用于 Dokploy/Coolify 等平台）
+
+直接在容器运行时传入环境变量，无需在构建时配置：
+
+```bash
+# 构建镜像（无需任何环境变量）
+docker build -t poker-plus .
+
+# 运行时传入环境变量
+docker run -d -p 3000:80 \
+  -e VITE_SUPABASE_URL=https://your-project.supabase.co \
+  -e VITE_SUPABASE_ANON_KEY=your-anon-key \
+  poker-plus
+```
+
+在 **Dokploy** 中：只需在 "Environment Variables" 面板添加这两个变量即可。
+
+#### 方式二：构建时参数（适用于手动构建）
+
+在 `docker build` 时通过 `--build-arg` 传入：
 
 ```bash
 docker build \
   --build-arg VITE_SUPABASE_URL=https://your-project.supabase.co \
   --build-arg VITE_SUPABASE_ANON_KEY=your-anon-key \
   -t poker-plus .
-```
 
-然后运行：
-
-```bash
 docker run -d -p 3000:80 poker-plus
 ```
 
@@ -473,4 +490,4 @@ docker run -d -p 3000:80 poker-plus
 
 **问题：部署后显示白屏，控制台报错 `supabaseUrl is required`**
 
-原因：构建时未传入 Supabase 环境变量。请确保在 `docker build` 命令中使用 `--build-arg` 传入必需的环境变量。
+原因：未配置 Supabase 环境变量。请使用上述任一方式配置环境变量后重新部署。
