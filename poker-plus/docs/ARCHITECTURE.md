@@ -436,3 +436,58 @@ export function parseAction(actionStr) → string[]
 ### 新增 UI 组件
 1. 在 `src/components/` 创建组件，保持无副作用（通过 props/callbacks 通信）。
 2. 更新本文档的组件树。
+
+---
+
+## 九、部署指南
+
+### 环境变量配置
+
+应用需要以下 Supabase 环境变量才能正常运行：
+
+| 变量名 | 说明 |
+|--------|------|
+| `VITE_SUPABASE_URL` | Supabase 项目 URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase 匿名公钥 |
+
+**本地开发**：在项目根目录创建 `.env` 文件（参考 `.env.example`）。
+
+### Docker 部署
+
+支持两种方式配置环境变量：
+
+#### 方式一：运行时环境变量（推荐，适用于 Dokploy/Coolify 等平台）
+
+直接在容器运行时传入环境变量，无需在构建时配置：
+
+```bash
+# 构建镜像（无需任何环境变量）
+docker build -t poker-plus .
+
+# 运行时传入环境变量
+docker run -d -p 3000:80 \
+  -e VITE_SUPABASE_URL=https://your-project.supabase.co \
+  -e VITE_SUPABASE_ANON_KEY=your-anon-key \
+  poker-plus
+```
+
+在 **Dokploy** 中：只需在 "Environment Variables" 面板添加这两个变量即可。
+
+#### 方式二：构建时参数（适用于手动构建）
+
+在 `docker build` 时通过 `--build-arg` 传入：
+
+```bash
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://your-project.supabase.co \
+  --build-arg VITE_SUPABASE_ANON_KEY=your-anon-key \
+  -t poker-plus .
+
+docker run -d -p 3000:80 poker-plus
+```
+
+### 常见问题
+
+**问题：部署后显示白屏，控制台报错 `supabaseUrl is required`**
+
+原因：未配置 Supabase 环境变量。请使用上述任一方式配置环境变量后重新部署。

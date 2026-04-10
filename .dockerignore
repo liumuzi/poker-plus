@@ -1,0 +1,7 @@
+poker-plus/node_modules
+poker-plus/dist
+.git
+.gitignore
+poker-plus/.env
+*.log
+README.md
