@@ -68,7 +68,7 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 pb-24">
+    <div className="flex flex-col min-h-screen bg-gray-900" style={{ paddingBottom: 'calc(140px + env(safe-area-inset-bottom))' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-12 pb-3">
         <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-800 active:scale-95 transition-transform">

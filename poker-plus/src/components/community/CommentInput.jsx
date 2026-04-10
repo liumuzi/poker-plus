@@ -27,8 +27,8 @@ export default function CommentInput({ onSubmit, replyTo, onCancelReply, disable
   const placeholder = replyTo ? `回复 @${replyTo.nickname}…` : '发表评论…';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-30 bg-gray-900 border-t border-gray-800 px-3 py-2.5"
-      style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom))' }}>
+    <div className="fixed left-0 right-0 max-w-md mx-auto z-50 bg-gray-900 border-t border-gray-800 px-3 py-2.5"
+      style={{ bottom: 'calc(64px + env(safe-area-inset-bottom))', paddingBottom: '0.625rem' }}>
       {/* 回复目标提示 */}
       {replyTo && (
         <div className="flex items-center justify-between px-1 mb-1.5">
