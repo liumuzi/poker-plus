@@ -145,6 +145,27 @@ function AppRouter() {
             onNavigate={mePush}
           />
         );
+      case 'post':
+        return (
+          <PostDetail
+            postId={current.params?.postId}
+            onBack={mePop}
+            onNavigate={mePush}
+          />
+        );
+      case 'editPost':
+        return (
+          <CreatePost
+            onBack={mePop}
+            initialData={{ editPost: current.params?.post }}
+            onSuccess={(id) => {
+              setMeNav(prev => {
+                const base = prev.slice(0, -2);
+                return [...base, { screen: 'post', params: { postId: id } }];
+              });
+            }}
+          />
+        );
       case 'myLikes':
         return <MyLikesPage onBack={mePop} onNavigate={mePush} />;
       case 'about':
