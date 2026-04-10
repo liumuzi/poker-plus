@@ -29,7 +29,11 @@ export function useLedger() {
       return;
     }
 
-    setLoading(true);
+    // 立即显示本地缓存，不阻塞 UI
+    setRecords(loadLocal());
+    setLoading(false);
+
+    // 后台静默同步云端数据
     supabase
       .from('ledger_records')
       .select('*')
@@ -39,9 +43,8 @@ export function useLedger() {
         if (!error && data) {
           setRecords(data.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
         }
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
   }, [user]);
 
   const addRecord = async (record) => {

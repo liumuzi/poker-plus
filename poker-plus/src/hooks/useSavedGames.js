@@ -35,7 +35,11 @@ export function useSavedGames() {
       return;
     }
 
-    setLoading(true);
+    // 立即显示本地缓存，不阻塞 UI
+    setSavedGames(loadLocal());
+    setLoading(false);
+
+    // 后台静默同步云端数据
     supabase
       .from('saved_games')
       .select('*')
@@ -46,9 +50,8 @@ export function useSavedGames() {
           const games = data.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data }));
           setSavedGames(games);
         }
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
   }, [user]);
 
   const saveGame = async (gameData) => {
