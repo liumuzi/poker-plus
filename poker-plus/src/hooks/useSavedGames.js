@@ -55,22 +55,29 @@ export function useSavedGames() {
       const alreadyMigrated = localStorage.getItem(migratedKey);
 
       if (!alreadyMigrated && localGames.length > 0) {
-        // 首次登录：将本地存档批量上传到云端
-        const inserts = localGames.map(game => {
-          const { id: _id, date: _date, ...gameData } = game;
-          return { user_id: user.id, game_data: gameData };
-        });
-        await supabase.from('saved_games').insert(inserts);
+        // 立即设置 flag，防止并发 effect 重复迁移
         localStorage.setItem(migratedKey, '1');
+        try {
+          const inserts = localGames.map(game => {
+            const { id: _id, date: _date, ...gameData } = game;
+            return { user_id: user.id, game_data: gameData };
+          });
+          const { error } = await supabase.from('saved_games').insert(inserts);
+          if (error) throw error;
 
-        // 重新拉取（含刚迁移的数据）
-        const { data: merged } = await supabase
-          .from('saved_games')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (merged) {
-          setSavedGames(merged.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
+          // 重新拉取（含刚迁移的数据）
+          const { data: merged } = await supabase
+            .from('saved_games')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (merged) {
+            setSavedGames(merged.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
+          }
+        } catch {
+          // 上传失败，撤销 flag 允许下次重试
+          localStorage.removeItem(migratedKey);
+          setSavedGames((data || []).map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
         }
       } else {
         setSavedGames((data || []).map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));

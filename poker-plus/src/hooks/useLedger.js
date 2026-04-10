@@ -49,22 +49,29 @@ export function useLedger() {
       const alreadyMigrated = localStorage.getItem(migratedKey);
 
       if (!alreadyMigrated && localRecords.length > 0) {
-        // 首次登录：将本地账本记录批量上传到云端
-        const inserts = localRecords.map(r => {
-          const { id: _id, createdAt: _c, ...recordData } = r;
-          return { user_id: user.id, record_data: recordData };
-        });
-        await supabase.from('ledger_records').insert(inserts);
+        // 立即设置 flag，防止并发 effect 重复迁移
         localStorage.setItem(migratedKey, '1');
+        try {
+          const inserts = localRecords.map(r => {
+            const { id: _id, createdAt: _c, ...recordData } = r;
+            return { user_id: user.id, record_data: recordData };
+          });
+          const { error } = await supabase.from('ledger_records').insert(inserts);
+          if (error) throw error;
 
-        // 重新拉取（含刚迁移的数据）
-        const { data: merged } = await supabase
-          .from('ledger_records')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (merged) {
-          setRecords(merged.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
+          // 重新拉取（含刚迁移的数据）
+          const { data: merged } = await supabase
+            .from('ledger_records')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (merged) {
+            setRecords(merged.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
+          }
+        } catch {
+          // 上传失败，撤销 flag 允许下次重试
+          localStorage.removeItem(migratedKey);
+          setRecords((data || []).map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
         }
       } else {
         setRecords((data || []).map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
