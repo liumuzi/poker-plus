@@ -97,7 +97,9 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     if (MOCK_MODE) { setUser(null); setProfile(null); return; }
-    await supabase.auth.signOut();
+    // 立即清除本地 session（不需要网络），再后台撤销服务器端 token
+    await supabase.auth.signOut({ scope: 'local' });
+    supabase.auth.signOut({ scope: 'global' }).catch(() => {});
   };
 
   const uploadAvatar = async (file) => {
