@@ -201,7 +201,6 @@ export function usePosts(typeFilter = 'all') {
       let query = supabase
         .from('posts')
         .select('*, profile:profiles(nickname, avatar_url)')
-        .eq('is_hidden', false)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
 
@@ -227,7 +226,6 @@ export function usePosts(typeFilter = 'all') {
       let query = supabase
         .from('posts')
         .select('*, profile:profiles(nickname, avatar_url)')
-        .eq('is_hidden', false)
         .lt('created_at', cursor)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);

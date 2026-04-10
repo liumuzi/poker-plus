@@ -29,27 +29,41 @@ export function AuthProvider({ children }) {
     // 真实模式：监听 Supabase Auth 状态
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) fetchProfile(session.user.id, session.user);
       else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setUser(session?.user ?? null);
-        if (session?.user) await fetchProfile(session.user.id);
+        if (session?.user) await fetchProfile(session.user.id, session.user);
         else { setProfile(null); setLoading(false); }
       }
     );
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId) => {
+  const fetchProfile = async (userId, userData = null) => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
-    setProfile(data);
+
+    if (!data) {
+      // Google OAuth 等第三方登录首次没有 profile，自动创建
+      const meta = userData?.user_metadata || {};
+      const nickname = meta.full_name || meta.name || userData?.email?.split('@')[0] || 'User';
+      const avatar_url = meta.avatar_url || meta.picture || null;
+      const { data: created } = await supabase
+        .from('profiles')
+        .insert({ id: userId, nickname, avatar_url, bio: '', post_count: 0 })
+        .select()
+        .single();
+      setProfile(created);
+    } else {
+      setProfile(data);
+    }
     setLoading(false);
   };
 
