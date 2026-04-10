@@ -197,43 +197,53 @@ export function usePosts(typeFilter = 'all') {
       return;
     }
 
-    let query = supabase
-      .from('posts')
-      .select('*, profile:profiles(nickname, avatar_url)')
-      .eq('is_hidden', false)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
+    try {
+      let query = supabase
+        .from('posts')
+        .select('*, profile:profiles(nickname, avatar_url)')
+        .eq('is_hidden', false)
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
 
-    if (typeFilter !== 'all') query = query.eq('type', typeFilter);
+      if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-    const { data } = await query;
-    const list = data || [];
-    setPosts(list);
-    setHasMore(list.length === PAGE_SIZE);
-    if (list.length > 0) setCursor(list[list.length - 1].created_at);
-    setLoading(false);
+      const { data } = await query;
+      const list = data || [];
+      setPosts(list);
+      setHasMore(list.length === PAGE_SIZE);
+      if (list.length > 0) setCursor(list[list.length - 1].created_at);
+    } catch {
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
   }, [typeFilter]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || loadingMore || !cursor || MOCK_MODE) return;
     setLoadingMore(true);
 
-    let query = supabase
-      .from('posts')
-      .select('*, profile:profiles(nickname, avatar_url)')
-      .eq('is_hidden', false)
-      .lt('created_at', cursor)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
+    try {
+      let query = supabase
+        .from('posts')
+        .select('*, profile:profiles(nickname, avatar_url)')
+        .eq('is_hidden', false)
+        .lt('created_at', cursor)
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
 
-    if (typeFilter !== 'all') query = query.eq('type', typeFilter);
+      if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-    const { data } = await query;
-    const list = data || [];
-    setPosts(prev => [...prev, ...list]);
-    setHasMore(list.length === PAGE_SIZE);
-    if (list.length > 0) setCursor(list[list.length - 1].created_at);
-    setLoadingMore(false);
+      const { data } = await query;
+      const list = data || [];
+      setPosts(prev => [...prev, ...list]);
+      setHasMore(list.length === PAGE_SIZE);
+      if (list.length > 0) setCursor(list[list.length - 1].created_at);
+    } catch {
+      // keep existing posts
+    } finally {
+      setLoadingMore(false);
+    }
   }, [hasMore, loadingMore, cursor, typeFilter]);
 
   useEffect(() => { load(); }, [load]);

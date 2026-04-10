@@ -47,7 +47,8 @@ export function useSavedGames() {
           setSavedGames(games);
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [user]);
 
   const saveGame = async (gameData) => {

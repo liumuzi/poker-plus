@@ -40,7 +40,8 @@ export function useLedger() {
           setRecords(data.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [user]);
 
   const addRecord = async (record) => {
