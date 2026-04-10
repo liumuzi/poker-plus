@@ -195,7 +195,7 @@ export default function SummaryScreen({ onShareToCommunity }) {
     saveGame({
       potSize,
       history,
-      players: isV2Mode ? players : players.filter((p) => p.isHero || (p.knownCards && p.knownCards.some((c) => c))),
+      players,
       communityCards,
       sbAmount,
       bbAmount,

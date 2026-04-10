@@ -66,8 +66,21 @@ export default function SetupScreen() {
   };
 
   return (
-    <div className="flex flex-col p-5 min-h-screen bg-slate-100 select-none">
-      <h2 className="text-2xl font-black mb-6 text-slate-800 pt-6">配置对局参数</h2>
+    <div className="flex flex-col min-h-screen bg-slate-100 select-none">
+      {/* 顶部导航 */}
+      <div className="flex-none bg-slate-900 pt-6 pb-4 px-4 rounded-b-2xl shadow-lg">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleAbandonSetup}
+            className="text-xs text-slate-400 hover:text-slate-300 px-2 py-1"
+          >
+            ← 返回
+          </button>
+          <h2 className="text-lg font-bold text-white">全量复盘配置</h2>
+          <div className="w-12" />
+        </div>
+      </div>
+      <div className="flex flex-col p-5">
 
       {/* 人数选择 */}
       <div className="bg-white rounded-[2rem] shadow-sm p-6 mb-4">
@@ -183,14 +196,9 @@ export default function SetupScreen() {
         >
           进入桌台发牌 <ChevronRight className="ml-2 w-6 h-6" />
         </button>
-        <button
-          onClick={handleAbandonSetup}
-          className="mx-auto block text-[11px] text-slate-400 hover:text-slate-500 active:text-slate-600 px-2 py-1"
-        >
-          放弃并返回首页
-        </button>
       </div>
       <CardPicker />
+    </div>
     </div>
   );
 }

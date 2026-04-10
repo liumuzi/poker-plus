@@ -13,7 +13,7 @@ const RECORD_MODES = (handleNewGame, handleNewGameV2) => [
 
 export default function HomeScreen() {
   const { dispatch } = useGame();
-  const { savedGames, deleteGame } = useSavedGames();
+  const { savedGames, deleteGame, loading } = useSavedGames();
 
   const handleNewGame = () => dispatch({ type: 'RESET_FOR_NEW_GAME' });
   const handleNewGameV2 = () => dispatch({ type: 'RESET_FOR_NEW_GAME_V2' });
@@ -81,9 +81,11 @@ export default function HomeScreen() {
       {/* 本地存档列表 */}
       <div className="px-4 pb-6">
         <h3 className="text-lg font-bold text-slate-300 mb-4 border-b border-felt-300 pb-2">
-          本地存档记录 ({savedGames.length})
+          存档记录 ({savedGames.length})
         </h3>
-        {savedGames.length === 0 ? (
+        {loading ? (
+          <p className="text-slate-500 text-sm text-center py-4">加载中…</p>
+        ) : savedGames.length === 0 ? (
           <p className="text-slate-500 text-sm text-center py-4">暂无存档记录</p>
         ) : (
           <div className="flex flex-col space-y-2">

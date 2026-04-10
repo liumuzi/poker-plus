@@ -6,8 +6,10 @@ import ReplayPlayer from '../replay/ReplayPlayer';
 let _uid = 0;
 
 /** Single action bubble — mirrors SummaryScreen style but scaled for community */
-function ActionBubble({ action, isHero }) {
+function ActionBubble({ action, isHero, player }) {
   const parts = parseAction(action);
+  // 缩写名字：最多4个字符，避免溢出
+  const shortName = player ? player.slice(0, 4) : '?';
   if (isHero) {
     return (
       <div className="flex w-full justify-end items-start gap-1 pl-1">
@@ -27,7 +29,9 @@ function ActionBubble({ action, isHero }) {
   return (
     <div className="flex w-full justify-start items-start gap-1 pr-1">
       <div className="flex flex-col items-center shrink-0 w-6">
-        <div className="w-5 h-5 rounded-full bg-slate-700 border border-slate-500 flex items-center justify-center text-[7px] text-slate-300 font-black">PLA</div>
+        <div className="w-5 h-5 rounded-full bg-slate-600 border border-slate-400 flex items-center justify-center text-[6px] text-white font-black leading-none text-center px-0.5">
+          {shortName}
+        </div>
       </div>
       <div className="relative bg-white text-slate-900 px-1.5 py-0.5 rounded shadow flex flex-col items-center min-w-[28px] text-center">
         <div className="absolute top-1.5 -left-[3px] border-t-[3px] border-t-transparent border-r-[3px] border-r-white border-b-[3px] border-b-transparent" />
@@ -169,7 +173,7 @@ export default function ReplayHandView({ replayData }) {
                   {/* Actions */}
                   <div className="flex-1 bg-gray-850 px-0.5 py-1.5 flex flex-col gap-1.5" style={{ backgroundColor: '#1a2235' }}>
                     {street.actions.map((act, ai) => (
-                      <ActionBubble key={ai} action={act.action} isHero={act.isHero} />
+                      <ActionBubble key={ai} action={act.action} isHero={act.isHero} player={act.player} />
                     ))}
                   </div>
                 </div>
