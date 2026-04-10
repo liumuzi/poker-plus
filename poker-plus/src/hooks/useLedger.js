@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { MOCK_MODE, supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'poker_ledger_records';
+const MIGRATED_KEY = 'pokerLedgerMigrated';
 
 function loadLocal() {
   try {
@@ -30,21 +31,45 @@ export function useLedger() {
     }
 
     // 立即显示本地缓存，不阻塞 UI
-    setRecords(loadLocal());
+    const localRecords = loadLocal();
+    setRecords(localRecords);
     setLoading(false);
 
-    // 后台静默同步云端数据
-    supabase
-      .from('ledger_records')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setRecords(data.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
+    // 后台：同步云端数据，首次登录时迁移本地记录
+    (async () => {
+      const { data, error } = await supabase
+        .from('ledger_records')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) return;
+
+      const migratedKey = `${MIGRATED_KEY}_${user.id}`;
+      const alreadyMigrated = localStorage.getItem(migratedKey);
+
+      if (!alreadyMigrated && localRecords.length > 0) {
+        // 首次登录：将本地账本记录批量上传到云端
+        const inserts = localRecords.map(r => {
+          const { id: _id, createdAt: _c, ...recordData } = r;
+          return { user_id: user.id, record_data: recordData };
+        });
+        await supabase.from('ledger_records').insert(inserts);
+        localStorage.setItem(migratedKey, '1');
+
+        // 重新拉取（含刚迁移的数据）
+        const { data: merged } = await supabase
+          .from('ledger_records')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (merged) {
+          setRecords(merged.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
         }
-      })
-      .catch(() => {});
+      } else {
+        setRecords((data || []).map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
+      }
+    })().catch(() => {});
   }, [user]);
 
   const addRecord = async (record) => {

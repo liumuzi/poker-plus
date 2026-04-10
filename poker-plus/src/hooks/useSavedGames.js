@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { MOCK_MODE, supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'pokerSavedGames';
+const MIGRATED_KEY = 'pokerGamesMigrated';
 
 function loadLocal() {
   try {
@@ -36,22 +37,45 @@ export function useSavedGames() {
     }
 
     // 立即显示本地缓存，不阻塞 UI
-    setSavedGames(loadLocal());
+    const localGames = loadLocal();
+    setSavedGames(localGames);
     setLoading(false);
 
-    // 后台静默同步云端数据
-    supabase
-      .from('saved_games')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) {
-          const games = data.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data }));
-          setSavedGames(games);
+    // 后台：同步云端数据，首次登录时迁移本地记录
+    (async () => {
+      const { data, error } = await supabase
+        .from('saved_games')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) return;
+
+      const migratedKey = `${MIGRATED_KEY}_${user.id}`;
+      const alreadyMigrated = localStorage.getItem(migratedKey);
+
+      if (!alreadyMigrated && localGames.length > 0) {
+        // 首次登录：将本地存档批量上传到云端
+        const inserts = localGames.map(game => {
+          const { id: _id, date: _date, ...gameData } = game;
+          return { user_id: user.id, game_data: gameData };
+        });
+        await supabase.from('saved_games').insert(inserts);
+        localStorage.setItem(migratedKey, '1');
+
+        // 重新拉取（含刚迁移的数据）
+        const { data: merged } = await supabase
+          .from('saved_games')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (merged) {
+          setSavedGames(merged.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
         }
-      })
-      .catch(() => {});
+      } else {
+        setSavedGames((data || []).map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
+      }
+    })().catch(() => {});
   }, [user]);
 
   const saveGame = async (gameData) => {
