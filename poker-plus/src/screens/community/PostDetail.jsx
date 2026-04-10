@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MoreHorizontal, Loader2, Tag, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Loader2, Tag, MessageCircle, Pencil, Trash2, Flag } from 'lucide-react';
 import { usePost } from '../../hooks/usePost';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../../components/community/UserAvatar';
@@ -22,11 +22,15 @@ function relativeTime(iso) {
 
 export default function PostDetail({ postId, onBack, onNavigate }) {
   const { user, isLoggedIn } = useAuth();
-  const { post, comments, loading, addComment } = usePost(postId);
-  const [replyTo, setReplyTo]     = useState(null); // { id, nickname }
-  const [showAuth, setShowAuth]   = useState(false);
+  const { post, comments, loading, addComment, deletePost } = usePost(postId);
+  const [replyTo, setReplyTo]       = useState(null); // { id, nickname }
+  const [showAuth, setShowAuth]     = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showMenu, setShowMenu]     = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+
+  const isOwner = user && post && user.id === post.user_id;
 
   const handleComment = async (content) => {
     if (!isLoggedIn) { setShowAuth(true); return; }
@@ -37,6 +41,14 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
   };
 
   const handleNeedAuth = () => setShowAuth(true);
+
+  const handleDelete = async () => {
+    if (!confirm('确认删除这篇帖子？此操作不可撤销。')) return;
+    setDeleting(true);
+    await deletePost();
+    setDeleting(false);
+    onBack();
+  };
 
   if (loading) {
     return (
@@ -67,7 +79,7 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
         }`}>
           {post.type === 'replay' ? '复盘' : '讨论'}
         </span>
-        <button onClick={() => setShowReport(true)} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-800 active:scale-95 transition-transform">
+        <button onClick={() => setShowMenu(true)} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-800 active:scale-95 transition-transform">
           <MoreHorizontal size={18} color="#9CA3AF" />
         </button>
       </div>
@@ -146,6 +158,49 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
 
       <AuthModal open={showAuth} onClose={() => setShowAuth(false)} onNavigate={onNavigate} />
       <ReportModal open={showReport} onClose={() => setShowReport(false)} targetType="post" targetId={post.id} />
+
+      {/* Action Sheet */}
+      {showMenu && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setShowMenu(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative bg-gray-800 rounded-t-3xl px-4 pt-4 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto mb-5" />
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => { setShowMenu(false); onNavigate({ screen: 'editPost', params: { post } }); }}
+                  className="flex items-center gap-3 w-full px-4 py-3.5 rounded-2xl text-white font-bold active:bg-gray-700 transition-colors"
+                >
+                  <Pencil size={18} className="text-blue-400" />
+                  编辑帖子
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); handleDelete(); }}
+                  disabled={deleting}
+                  className="flex items-center gap-3 w-full px-4 py-3.5 rounded-2xl text-rose-400 font-bold active:bg-gray-700 transition-colors"
+                >
+                  <Trash2 size={18} />
+                  {deleting ? '删除中…' : '删除帖子'}
+                </button>
+                <div className="border-t border-gray-700 my-2" />
+              </>
+            )}
+            <button
+              onClick={() => { setShowMenu(false); setShowReport(true); }}
+              className="flex items-center gap-3 w-full px-4 py-3.5 rounded-2xl text-gray-400 font-bold active:bg-gray-700 transition-colors"
+            >
+              <Flag size={18} />
+              举报帖子
+            </button>
+            <button
+              onClick={() => setShowMenu(false)}
+              className="w-full mt-2 py-3.5 rounded-2xl bg-gray-700 text-gray-300 font-bold active:bg-gray-600 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

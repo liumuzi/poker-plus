@@ -127,5 +127,21 @@ export function usePost(postId) {
     return { error };
   };
 
-  return { post, comments, loading, addComment };
+  const deletePost = async () => {
+    if (MOCK_MODE) return { error: null };
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    return { error };
+  };
+
+  const updatePost = async (updates) => {
+    if (MOCK_MODE) {
+      setPost(prev => prev ? { ...prev, ...updates } : prev);
+      return { error: null };
+    }
+    const { error } = await supabase.from('posts').update(updates).eq('id', postId);
+    if (!error) setPost(prev => prev ? { ...prev, ...updates } : prev);
+    return { error };
+  };
+
+  return { post, comments, loading, addComment, deletePost, updatePost };
 }

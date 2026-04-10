@@ -10,11 +10,15 @@ const MAX_TAGS = 5;
 export default function CreatePost({ onBack, onSuccess, initialData }) {
   const { user } = useAuth();
 
-  const [type, setType]         = useState(initialData?.type || 'discussion');
-  const [title, setTitle]       = useState(initialData?.title || '');
-  const [body, setBody]         = useState(initialData?.body || '');
+  // Edit mode: initialData.editPost contains the existing post object
+  const editPost = initialData?.editPost || null;
+  const isEditing = !!editPost;
+
+  const [type, setType]         = useState(editPost?.type || initialData?.type || 'discussion');
+  const [title, setTitle]       = useState(editPost?.title || initialData?.title || '');
+  const [body, setBody]         = useState(editPost?.body || initialData?.body || '');
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags]         = useState(initialData?.tags || []);
+  const [tags, setTags]         = useState(editPost?.tags || initialData?.tags || []);
   const [error, setError]       = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,26 +45,34 @@ export default function CreatePost({ onBack, onSuccess, initialData }) {
     try {
       if (MOCK_MODE) {
         await new Promise(r => setTimeout(r, 800));
-        // Mock 成功：生成一个假 ID
-        onSuccess?.('mock-post-' + Date.now());
+        onSuccess?.(editPost?.id || 'mock-post-' + Date.now());
         return;
       }
 
-      const { data, error: insertErr } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id, type, title: title.trim(),
-          body: body.trim() || null,
-          replay_data: initialData?.replayData || null,
-          tags,
-        })
-        .select()
-        .single();
-
-      if (insertErr) throw insertErr;
-      onSuccess?.(data.id);
+      if (isEditing) {
+        const { error: updateErr } = await supabase
+          .from('posts')
+          .update({ title: title.trim(), body: body.trim() || null, tags })
+          .eq('id', editPost.id)
+          .eq('user_id', user.id);
+        if (updateErr) throw updateErr;
+        onSuccess?.(editPost.id);
+      } else {
+        const { data, error: insertErr } = await supabase
+          .from('posts')
+          .insert({
+            user_id: user.id, type, title: title.trim(),
+            body: body.trim() || null,
+            replay_data: initialData?.replayData || null,
+            tags,
+          })
+          .select()
+          .single();
+        if (insertErr) throw insertErr;
+        onSuccess?.(data.id);
+      }
     } catch (err) {
-      setError(err.message || '发布失败，请稍后重试');
+      setError(err.message || (isEditing ? '保存失败，请稍后重试' : '发布失败，请稍后重试'));
     } finally {
       setSubmitting(false);
     }
@@ -79,7 +91,7 @@ export default function CreatePost({ onBack, onSuccess, initialData }) {
         <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-800 active:scale-95 transition-transform">
           <ArrowLeft size={18} color="white" />
         </button>
-        <h1 className="text-white font-black text-lg">发帖</h1>
+        <h1 className="text-white font-black text-lg">{isEditing ? '编辑帖子' : '发帖'}</h1>
         <button
           onClick={handleSubmit}
           disabled={submitting}
@@ -87,7 +99,7 @@ export default function CreatePost({ onBack, onSuccess, initialData }) {
             submitting ? 'bg-gray-800 text-gray-600' : 'bg-blue-600 text-white'
           }`}
         >
-          {submitting ? <Loader2 size={14} className="animate-spin" /> : '发布'}
+          {submitting ? <Loader2 size={14} className="animate-spin" /> : (isEditing ? '保存' : '发布')}
         </button>
       </div>
 
@@ -101,7 +113,7 @@ export default function CreatePost({ onBack, onSuccess, initialData }) {
         )}
 
         {/* 帖子类型 */}
-        {!initialData?.type && (
+        {!isEditing && !initialData?.type && (
           <div className="flex gap-2">
             {[{ id: 'discussion', label: '讨论帖' }, { id: 'replay', label: '复盘帖' }].map(t => (
               <button

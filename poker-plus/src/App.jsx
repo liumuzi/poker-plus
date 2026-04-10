@@ -75,6 +75,20 @@ function AppRouter() {
             }}
           />
         );
+      case 'editPost':
+        return (
+          <CreatePost
+            onBack={communityPop}
+            initialData={{ editPost: current.params?.post }}
+            onSuccess={(id) => {
+              // Pop editPost + the underlying post, then push fresh post detail
+              setCommunityNav(prev => {
+                const base = prev.slice(0, -2);
+                return [...base, { screen: 'post', params: { postId: id } }];
+              });
+            }}
+          />
+        );
       case 'search':
         return <SearchPage onBack={communityPop} onNavigate={communityPush} />;
       case 'notifications':
