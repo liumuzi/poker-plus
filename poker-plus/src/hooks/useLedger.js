@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { MOCK_MODE, supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'poker_ledger_records';
 
-function loadRecords() {
+function loadLocal() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   } catch {
@@ -10,35 +12,97 @@ function loadRecords() {
   }
 }
 
-export function useLedger() {
-  const [records, setRecords] = useState(loadRecords);
+function saveLocal(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
 
-  const addRecord = (record) => {
+export function useLedger() {
+  const { user } = useAuth();
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 加载记录
+  useEffect(() => {
+    if (MOCK_MODE || !user) {
+      setRecords(loadLocal());
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    supabase
+      .from('ledger_records')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setRecords(data.map(row => ({ ...row.record_data, id: row.id, createdAt: row.created_at })));
+        }
+        setLoading(false);
+      });
+  }, [user]);
+
+  const addRecord = async (record) => {
     const newRecord = {
       ...record,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
       profit: record.cashOut - record.buyIn,
+      createdAt: new Date().toISOString(),
     };
-    const updated = [newRecord, ...records];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setRecords(updated);
+
+    if (MOCK_MODE || !user) {
+      const withId = { ...newRecord, id: Date.now().toString() };
+      const updated = [withId, ...records];
+      saveLocal(updated);
+      setRecords(updated);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('ledger_records')
+      .insert({ user_id: user.id, record_data: newRecord })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setRecords(prev => [{ ...newRecord, id: data.id, createdAt: data.created_at }, ...prev]);
+    }
   };
 
-  const deleteRecord = (id) => {
-    const updated = records.filter((r) => r.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setRecords(updated);
+  const deleteRecord = async (id) => {
+    if (MOCK_MODE || !user) {
+      const updated = records.filter(r => r.id !== id);
+      saveLocal(updated);
+      setRecords(updated);
+      return;
+    }
+
+    await supabase.from('ledger_records').delete().eq('id', id).eq('user_id', user.id);
+    setRecords(prev => prev.filter(r => r.id !== id));
   };
 
-  const updateRecord = (id, data) => {
-    const updated = records.map((r) =>
-      r.id === id
-        ? { ...r, ...data, profit: data.cashOut - data.buyIn }
-        : r
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setRecords(updated);
+  const updateRecord = async (id, data) => {
+    const updated = { ...data, profit: data.cashOut - data.buyIn };
+
+    if (MOCK_MODE || !user) {
+      const updatedList = records.map(r => r.id === id ? { ...r, ...updated } : r);
+      saveLocal(updatedList);
+      setRecords(updatedList);
+      return;
+    }
+
+    const current = records.find(r => r.id === id);
+    if (!current) return;
+    const newData = { ...current, ...updated };
+    const { id: _id, createdAt: _c, ...recordData } = newData;
+
+    await supabase
+      .from('ledger_records')
+      .update({ record_data: recordData })
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    setRecords(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
   };
 
   const summary = useMemo(() => {
@@ -53,7 +117,6 @@ export function useLedger() {
     return { totalProfit, totalSessions, avgProfit, bestSession, worstSession, totalHours, profitPerHour };
   }, [records]);
 
-  // Unique locations sorted by most recent use
   const savedLocations = useMemo(() => {
     const seen = new Set();
     const result = [];
@@ -66,7 +129,6 @@ export function useLedger() {
     return result;
   }, [records]);
 
-  // Stats grouped by location
   const locationStats = useMemo(() => {
     const map = {};
     for (const r of records) {
@@ -79,5 +141,5 @@ export function useLedger() {
     return Object.values(map).sort((a, b) => b.profit - a.profit);
   }, [records]);
 
-  return { records, addRecord, updateRecord, deleteRecord, summary, savedLocations, locationStats };
+  return { records, addRecord, updateRecord, deleteRecord, summary, savedLocations, locationStats, loading };
 }
