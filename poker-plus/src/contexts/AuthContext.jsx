@@ -97,8 +97,11 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     if (MOCK_MODE) { setUser(null); setProfile(null); return; }
-    // 立即清除本地 session（不需要网络），再后台撤销服务器端 token
-    await supabase.auth.signOut({ scope: 'local' });
+    // 立即清除 React 状态，不等待网络（解决中国网络慢导致退出卡住的问题）
+    setUser(null);
+    setProfile(null);
+    // 后台清除本地 session 和服务器端 token
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     supabase.auth.signOut({ scope: 'global' }).catch(() => {});
   };
 
