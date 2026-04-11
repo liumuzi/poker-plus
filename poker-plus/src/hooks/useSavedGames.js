@@ -27,6 +27,7 @@ export function useSavedGames() {
   const { user } = useAuth();
   const [savedGames, setSavedGames] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // 新增：错误状态
 
   // 加载存档
   useEffect(() => {
@@ -43,13 +44,17 @@ export function useSavedGames() {
 
     // 后台：同步云端数据，首次登录时迁移本地记录
     (async () => {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('saved_games')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) return;
+      if (fetchError) {
+        console.warn('[useSavedGames] fetch error:', fetchError.message);
+        setError(fetchError.message);
+        return;
+      }
 
       const migratedKey = `${MIGRATED_KEY}_${user.id}`;
       const alreadyMigrated = localStorage.getItem(migratedKey);
@@ -62,8 +67,8 @@ export function useSavedGames() {
             const { id: _id, date: _date, ...gameData } = game;
             return { user_id: user.id, game_data: gameData };
           });
-          const { error } = await supabase.from('saved_games').insert(inserts);
-          if (error) throw error;
+          const { error: insertError } = await supabase.from('saved_games').insert(inserts);
+          if (insertError) throw insertError;
 
           // 重新拉取（含刚迁移的数据）
           const { data: merged } = await supabase
@@ -74,15 +79,18 @@ export function useSavedGames() {
           if (merged) {
             setSavedGames(merged.map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
           }
-        } catch {
+        } catch (err) {
           // 上传失败，撤销 flag 允许下次重试
+          console.warn('[useSavedGames] migration error:', err.message || err);
           localStorage.removeItem(migratedKey);
           setSavedGames((data || []).map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
         }
       } else {
         setSavedGames((data || []).map(row => ({ id: row.id, date: new Date(row.created_at).toLocaleString(), ...row.game_data })));
       }
-    })().catch(() => {});
+    })().catch((err) => {
+      console.error('[useSavedGames] unexpected error:', err);
+    });
   }, [user]);
 
   const saveGame = async (gameData) => {
@@ -93,19 +101,24 @@ export function useSavedGames() {
       const updated = [newGame, ...savedGames];
       setSavedGames(updated);
       saveLocal(updated);
-      return;
+      return { error: null };
     }
 
-    const { data, error } = await supabase
+    const { data, error: insertError } = await supabase
       .from('saved_games')
       .insert({ user_id: user.id, game_data: gameData })
       .select()
       .single();
 
-    if (!error && data) {
+    if (insertError) {
+      console.warn('[useSavedGames] saveGame error:', insertError.message);
+      return { error: insertError };
+    }
+    if (data) {
       const newGame = { id: data.id, date: new Date(data.created_at).toLocaleString(), ...gameData };
       setSavedGames(prev => [newGame, ...prev]);
     }
+    return { error: null };
   };
 
   const deleteGame = async (id) => {
@@ -113,11 +126,16 @@ export function useSavedGames() {
       const updated = savedGames.filter(g => g.id !== id);
       setSavedGames(updated);
       saveLocal(updated);
-      return;
+      return { error: null };
     }
 
-    await supabase.from('saved_games').delete().eq('id', id).eq('user_id', user.id);
+    const { error: deleteError } = await supabase.from('saved_games').delete().eq('id', id).eq('user_id', user.id);
+    if (deleteError) {
+      console.warn('[useSavedGames] deleteGame error:', deleteError.message);
+      return { error: deleteError };
+    }
     setSavedGames(prev => prev.filter(g => g.id !== id));
+    return { error: null };
   };
 
   const updateGame = async (id, patch) => {
@@ -125,23 +143,29 @@ export function useSavedGames() {
       const updated = savedGames.map(g => g.id === id ? { ...g, ...patch } : g);
       setSavedGames(updated);
       saveLocal(updated);
-      return;
+      return { error: null };
     }
 
     // 取当前 game_data 合并 patch
     const current = savedGames.find(g => g.id === id);
-    if (!current) return;
+    if (!current) return { error: new Error('Game not found') };
     const { id: _id, date: _date, ...currentData } = current;
     const newData = { ...currentData, ...patch };
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('saved_games')
       .update({ game_data: newData })
       .eq('id', id)
       .eq('user_id', user.id);
 
+    if (updateError) {
+      console.warn('[useSavedGames] updateGame error:', updateError.message);
+      return { error: updateError };
+    }
+
     setSavedGames(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
+    return { error: null };
   };
 
-  return { savedGames, saveGame, deleteGame, updateGame, loading };
+  return { savedGames, saveGame, deleteGame, updateGame, loading, error };
 }

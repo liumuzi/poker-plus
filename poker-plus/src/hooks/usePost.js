@@ -35,12 +35,14 @@ export function usePost(postId) {
   const [post, setPost]         = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null); // 新增：错误状态
 
   useEffect(() => {
     if (!postId) return;
 
     const fetch = async () => {
       setLoading(true);
+      setError(null);
 
       if (MOCK_MODE) {
         await new Promise(r => setTimeout(r, 300));
@@ -50,31 +52,52 @@ export function usePost(postId) {
         return;
       }
 
-      // TODO: 真实查询
-      const [{ data: postData }, { data: commentData }] = await Promise.all([
-        supabase.from('posts')
-          .select('*, profile:profiles(nickname, avatar_url)')
-          .eq('id', postId).single(),
-        supabase.from('comments')
-          .select('*, profile:profiles(nickname, avatar_url)')
-          .eq('post_id', postId).is('parent_id', null)
-          .order('created_at', { ascending: true }),
-      ]);
+      try {
+        const [{ data: postData, error: postError }, { data: commentData, error: commentError }] = await Promise.all([
+          supabase.from('posts')
+            .select('*, profile:profiles(nickname, avatar_url)')
+            .eq('id', postId).single(),
+          supabase.from('comments')
+            .select('*, profile:profiles(nickname, avatar_url)')
+            .eq('post_id', postId).is('parent_id', null)
+            .order('created_at', { ascending: true }),
+        ]);
 
-      setPost(postData);
-      // 构建评论树（附加 replies）
-      if (commentData) {
-        const { data: replyData } = await supabase.from('comments')
-          .select('*, profile:profiles(nickname, avatar_url)')
-          .eq('post_id', postId).not('parent_id', 'is', null);
-        const replyMap = {};
-        (replyData || []).forEach(r => {
-          if (!replyMap[r.parent_id]) replyMap[r.parent_id] = [];
-          replyMap[r.parent_id].push(r);
-        });
-        setComments(commentData.map(c => ({ ...c, replies: replyMap[c.id] || [] })));
+        if (postError) {
+          console.warn('[usePost] fetch post error:', postError.message);
+          setError(postError.message);
+          setPost(null);
+          setLoading(false);
+          return;
+        }
+
+        if (commentError) {
+          console.warn('[usePost] fetch comments error:', commentError.message);
+        }
+
+        setPost(postData);
+        // 构建评论树（附加 replies）
+        if (commentData) {
+          const { data: replyData, error: replyError } = await supabase.from('comments')
+            .select('*, profile:profiles(nickname, avatar_url)')
+            .eq('post_id', postId).not('parent_id', 'is', null);
+          if (replyError) {
+            console.warn('[usePost] fetch replies error:', replyError.message);
+          }
+          const replyMap = {};
+          (replyData || []).forEach(r => {
+            if (!replyMap[r.parent_id]) replyMap[r.parent_id] = [];
+            replyMap[r.parent_id].push(r);
+          });
+          setComments(commentData.map(c => ({ ...c, replies: replyMap[c.id] || [] })));
+        }
+      } catch (err) {
+        console.error('[usePost] unexpected error:', err);
+        setError('网络错误，请重试');
+        setPost(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetch();
@@ -143,5 +166,5 @@ export function usePost(postId) {
     return { error };
   };
 
-  return { post, comments, loading, addComment, deletePost, updatePost };
+  return { post, comments, loading, error, addComment, deletePost, updatePost };
 }

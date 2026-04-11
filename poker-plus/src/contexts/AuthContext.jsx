@@ -43,24 +43,53 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId, userData = null) => {
-    const { data } = await supabase
+  /**
+   * 获取用户 profile，带重试机制
+   * - 数据库 Trigger 在用户注册时自动创建 profile（随机昵称）
+   * - 前端需要等待 Trigger 完成，避免竞态条件
+   * @param {string} userId
+   * @param {object} userData - 可选的 user metadata
+   * @param {number} retries - 重试次数（等待 Trigger 完成）
+   */
+  const fetchProfile = async (userId, userData = null, retries = 3) => {
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
 
+    // 如果查询失败但不是 "not found"，直接设置 profile 为 null
+    if (error && error.code !== 'PGRST116') {
+      console.warn('[AuthContext] fetchProfile error:', error.message);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!data && retries > 0) {
+      // Trigger 可能还没执行完，等待后重试
+      await new Promise(r => setTimeout(r, 500));
+      return fetchProfile(userId, userData, retries - 1);
+    }
+
     if (!data) {
-      // Google OAuth 等第三方登录首次没有 profile，自动创建
+      // 重试后仍无数据，说明是 Google OAuth 首次登录，需手动创建 profile
       const meta = userData?.user_metadata || {};
       const nickname = meta.full_name || meta.name || userData?.email?.split('@')[0] || 'User';
       const avatar_url = meta.avatar_url || meta.picture || null;
-      const { data: created } = await supabase
+      const { data: created, error: insertError } = await supabase
         .from('profiles')
         .insert({ id: userId, nickname, avatar_url, bio: '', post_count: 0 })
         .select()
         .single();
-      setProfile(created);
+      if (insertError) {
+        console.warn('[AuthContext] profile insert error:', insertError.message);
+        // 可能是 UNIQUE 冲突（Trigger 刚创建完），再查一次
+        const { data: retry } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        setProfile(retry || null);
+      } else {
+        setProfile(created);
+      }
     } else {
       setProfile(data);
     }
@@ -144,13 +173,18 @@ export function AuthProvider({ children }) {
       setProfile(prev => ({ ...prev, ...updates }));
       return { error: null };
     }
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', user.id)
       .select()
       .single();
-    if (!error) setProfile(prev => ({ ...prev, ...updates }));
+    // 使用服务器返回的完整数据，确保与数据库同步
+    if (!error && data) {
+      setProfile(data);
+    } else if (error) {
+      console.warn('[AuthContext] updateProfile error:', error.message);
+    }
     return { error };
   };
 
