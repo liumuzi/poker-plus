@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 // ── Mock 通知数据 ──────────────────────────────────────────────
@@ -66,6 +66,15 @@ export function useNotifications() {
       await new Promise(r => setTimeout(r, 300));
       setNotifications(MOCK_NOTIFICATIONS);
       setUnreadCount(MOCK_NOTIFICATIONS.filter(n => !n.is_read).length);
+      setLoading(false);
+      return;
+    }
+
+    // 检查 Supabase 是否已配置
+    if (!SUPABASE_CONFIGURED) {
+      setError('数据库未配置');
+      setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }

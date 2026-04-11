@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 import { MOCK_POSTS } from '../data/mockPosts';
 
 const PAGE_SIZE = 20;
@@ -31,6 +31,14 @@ export function usePosts(typeFilter = 'all') {
       return;
     }
 
+    // 检查 Supabase 是否已配置
+    if (!SUPABASE_CONFIGURED) {
+      setError('数据库未配置。请检查 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY 环境变量是否已正确设置。');
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       let query = supabase
         .from('posts')
@@ -53,7 +61,7 @@ export function usePosts(typeFilter = 'all') {
       }
     } catch (err) {
       console.error('[usePosts] unexpected error:', err);
-      setError('网络错误，请重试');
+      setError(err.name === 'AbortError' ? '请求超时，请检查网络后重试' : '网络错误，请重试');
       setPosts([]);
     } finally {
       setLoading(false);

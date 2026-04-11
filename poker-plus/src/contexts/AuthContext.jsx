@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 // ── Mock 用户（MOCK_MODE = true 时使用）──────────────────────
 const MOCK_USER = null; // null = 未登录；改为对象模拟已登录状态
@@ -27,6 +27,12 @@ export function AuthProvider({ children }) {
     }
 
     // 真实模式：监听 Supabase Auth 状态
+    if (!SUPABASE_CONFIGURED) {
+      console.warn('[AuthContext] Supabase 未配置，跳过 Auth 初始化');
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id, session.user);
@@ -182,6 +188,9 @@ export function AuthProvider({ children }) {
       setProfile(prev => ({ ...prev, ...updates }));
       return { error: null };
     }
+    if (!SUPABASE_CONFIGURED) {
+      return { error: { message: '数据库未配置，无法保存。请联系管理员检查服务器环境变量。' } };
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -193,12 +202,15 @@ export function AuthProvider({ children }) {
       if (!error && data) {
         setProfile(data);
       } else if (error) {
-        console.warn('[AuthContext] updateProfile error:', error.message);
+        console.warn('[AuthContext] updateProfile error:', error.message, error.details, error.hint);
       }
       return { error };
     } catch (err) {
       console.error('[AuthContext] updateProfile unexpected error:', err);
-      return { error: { message: err.message || '网络错误，请稍后重试' } };
+      const message = err.name === 'AbortError'
+        ? '请求超时，请检查网络后重试'
+        : (err.message || '网络错误，请稍后重试');
+      return { error: { message } };
     }
   };
 
