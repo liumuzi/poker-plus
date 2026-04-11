@@ -47,7 +47,7 @@ const MOCK_NOTIFICATIONS = [
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading]             = useState(false);
+  const [loading, setLoading]             = useState(true);
   const [unreadCount, setUnreadCount]     = useState(0);
   const [error, setError]                 = useState(null); // 新增：错误状态
 
