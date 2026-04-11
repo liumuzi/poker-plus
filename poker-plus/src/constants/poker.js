@@ -18,6 +18,8 @@ export const ROUND_NAMES = [
 ];
 
 export function getPositions(count) {
+  if (count === 2)  return ['BTN/SB', 'BB'];
+  if (count === 3)  return ['BTN', 'SB', 'BB'];
   if (count === 4)  return ['CO', 'BTN', 'SB', 'BB'];
   if (count === 5)  return ['UTG', 'CO', 'BTN', 'SB', 'BB'];
   if (count === 6)  return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];

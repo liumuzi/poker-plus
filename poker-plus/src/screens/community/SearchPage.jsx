@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { MOCK_POSTS } from '../../hooks/usePosts';
+import { MOCK_POSTS } from '../../data/mockPosts';
 import { MOCK_MODE, supabase } from '../../lib/supabase';
 import PostCard from '../../components/community/PostCard';
 

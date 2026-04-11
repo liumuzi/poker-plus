@@ -8,7 +8,7 @@ export default function LoginPage({ onBack, onSuccess, onGoRegister }) {
   // OAuth 回调后页面刷新，检测到已登录就自动关闭登录页
   useEffect(() => {
     if (isLoggedIn) onSuccess?.();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, onSuccess]);
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);

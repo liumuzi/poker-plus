@@ -147,28 +147,34 @@ export function AuthProvider({ children }) {
     setUser(null);
     setProfile(null);
     // 后台清除本地 session 和服务器端 token
-    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-    supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+    supabase.auth.signOut({ scope: 'local' }).catch(err => console.warn('[AuthContext] signOut local error:', err));
+    supabase.auth.signOut({ scope: 'global' }).catch(err => console.warn('[AuthContext] signOut global error:', err));
   };
 
   const uploadAvatar = async (file) => {
     if (MOCK_MODE) return { url: null, error: new Error('Mock mode') };
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/avatar.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from('avatar')
-      .upload(path, file, { upsert: true });
-    if (uploadError) return { url: null, error: uploadError };
-    const { data } = supabase.storage.from('avatar').getPublicUrl(path);
-    const url = `${data.publicUrl}?t=${Date.now()}`;
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ avatar_url: url, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
-      .select()
-      .single();
-    if (!updateError) setProfile(prev => ({ ...prev, avatar_url: url }));
-    return { url, error: updateError };
+    if (!user?.id) return { url: null, error: { message: '未登录，请先登录' } };
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatar')
+        .upload(path, file, { upsert: true });
+      if (uploadError) return { url: null, error: uploadError };
+      const { data } = supabase.storage.from('avatar').getPublicUrl(path);
+      const url = `${data.publicUrl}?t=${Date.now()}`;
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: url, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (!updateError) setProfile(prev => ({ ...prev, avatar_url: url }));
+      return { url, error: updateError };
+    } catch (err) {
+      console.error('[AuthContext] uploadAvatar unexpected error:', err);
+      return { url: null, error: { message: err.message || '上传失败，请稍后重试' } };
+    }
   };
 
   const updateProfile = async (updates) => {
@@ -176,19 +182,24 @@ export function AuthProvider({ children }) {
       setProfile(prev => ({ ...prev, ...updates }));
       return { error: null };
     }
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
-      .select()
-      .single();
-    // 使用服务器返回的完整数据，确保与数据库同步
-    if (!error && data) {
-      setProfile(data);
-    } else if (error) {
-      console.warn('[AuthContext] updateProfile error:', error.message);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .select()
+        .single();
+      // 使用服务器返回的完整数据，确保与数据库同步
+      if (!error && data) {
+        setProfile(data);
+      } else if (error) {
+        console.warn('[AuthContext] updateProfile error:', error.message);
+      }
+      return { error };
+    } catch (err) {
+      console.error('[AuthContext] updateProfile unexpected error:', err);
+      return { error: { message: err.message || '网络错误，请稍后重试' } };
     }
-    return { error };
   };
 
   return (
