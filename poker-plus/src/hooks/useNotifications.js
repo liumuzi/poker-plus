@@ -41,15 +41,22 @@ const MOCK_NOTIFICATIONS = [
   },
 ];
 
+// 标记 notifications 表是否可用（首次查询失败后跳过后续请求）
+let notificationsTableAvailable = true;
+
 /**
  * 通知列表
+ *
+ * 注意：notifications 表可能尚未在 Supabase 中创建。
+ * 首次查询若发现表不存在（PGRST116 / schema cache 错误），
+ * 后续会跳过所有查询和 realtime 订阅，避免持续报错。
  */
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [unreadCount, setUnreadCount]     = useState(0);
-  const [error, setError]                 = useState(null); // 新增：错误状态
+  const [error, setError]                 = useState(null);
 
   const load = useCallback(async () => {
     if (!user) {
@@ -79,6 +86,14 @@ export function useNotifications() {
       return;
     }
 
+    // 如果之前已确认表不存在，直接返回空
+    if (!notificationsTableAvailable) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error: queryError } = await withTimeout(
         supabase
@@ -89,10 +104,18 @@ export function useNotifications() {
       );
 
       if (queryError) {
-        console.warn('[useNotifications] load error:', queryError.message);
-        setError(queryError.message);
-        setNotifications([]);
-        setUnreadCount(0);
+        // 表不存在：标记为不可用，后续不再请求
+        if (queryError.message?.includes('schema cache') || queryError.code === 'PGRST204') {
+          console.info('[useNotifications] notifications 表尚未创建，通知功能暂不可用');
+          notificationsTableAvailable = false;
+          setNotifications([]);
+          setUnreadCount(0);
+        } else {
+          console.warn('[useNotifications] load error:', queryError.message);
+          setError(queryError.message);
+          setNotifications([]);
+          setUnreadCount(0);
+        }
       } else {
         const list = data || [];
         setNotifications(list);
@@ -109,9 +132,9 @@ export function useNotifications() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Real-time: listen for new notifications
+  // Real-time: listen for new notifications（仅在表存在时订阅）
   useEffect(() => {
-    if (MOCK_MODE || !user) return;
+    if (MOCK_MODE || !user || !SUPABASE_CONFIGURED || !notificationsTableAvailable) return;
     const channel = supabase
       .channel('notifications-realtime')
       .on('postgres_changes',
@@ -131,6 +154,8 @@ export function useNotifications() {
       setUnreadCount(0);
       return;
     }
+
+    if (!notificationsTableAvailable) return;
     
     // Optimistic update - 先更新 UI，失败时回滚
     const prevNotifications = notifications;
