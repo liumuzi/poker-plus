@@ -217,8 +217,9 @@ export function AuthProvider({ children }) {
         await new Promise(r => setTimeout(r, 2000));
         return updateProfile(updates, _retryCount + 1);
       }
-      const message = err.name === 'AbortError'
-        ? '请求超时，请检查网络后重试'
+      const isTimeout = err.name === 'AbortError' || err.message?.includes('超时');
+      const message = isTimeout
+        ? '网络连接超时。可能原因：\n1. 当前网络无法连接服务器\n2. 请尝试切换网络（WiFi/4G）后重试'
         : (err.message || '网络错误，请稍后重试');
       return { error: { message } };
     }
