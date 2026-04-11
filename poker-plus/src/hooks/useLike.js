@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, withTimeout } from '../lib/supabase';
 
 /**
  * 点赞状态管理（Optimistic Update）
@@ -30,11 +30,11 @@ export function useLike(targetType, targetId, initialCount = 0, initialLiked = f
 
     try {
       if (newLiked) {
-        const { error } = await supabase.from('likes').insert({ user_id: userId, target_type: targetType, target_id: targetId });
+        const { error } = await withTimeout(supabase.from('likes').insert({ user_id: userId, target_type: targetType, target_id: targetId }));
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('likes').delete()
-          .match({ user_id: userId, target_type: targetType, target_id: targetId });
+        const { error } = await withTimeout(supabase.from('likes').delete()
+          .match({ user_id: userId, target_type: targetType, target_id: targetId }));
         if (error) throw error;
       }
     } catch (err) {

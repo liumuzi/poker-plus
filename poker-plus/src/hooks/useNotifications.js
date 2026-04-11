@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED, withTimeout } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 // ── Mock 通知数据 ──────────────────────────────────────────────
@@ -80,11 +80,13 @@ export function useNotifications() {
     }
 
     try {
-      const { data, error: queryError } = await supabase
-        .from('notifications')
-        .select('*, actor:profiles!actor_id(nickname, avatar_url)')
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data, error: queryError } = await withTimeout(
+        supabase
+          .from('notifications')
+          .select('*, actor:profiles!actor_id(nickname, avatar_url)')
+          .order('created_at', { ascending: false })
+          .limit(50)
+      );
 
       if (queryError) {
         console.warn('[useNotifications] load error:', queryError.message);
@@ -98,7 +100,7 @@ export function useNotifications() {
       }
     } catch (err) {
       console.error('[useNotifications] unexpected error:', err);
-      setError('网络错误，请重试');
+      setError(err.message || '网络错误，请重试');
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -136,10 +138,17 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
     
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
-    if (error) {
-      console.warn('[useNotifications] markAllRead error:', error.message);
-      // 回滚到之前的状态
+    try {
+      const { error } = await withTimeout(
+        supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false)
+      );
+      if (error) {
+        console.warn('[useNotifications] markAllRead error:', error.message);
+        setNotifications(prevNotifications);
+        setUnreadCount(prevUnreadCount);
+      }
+    } catch (err) {
+      console.warn('[useNotifications] markAllRead timeout:', err.message);
       setNotifications(prevNotifications);
       setUnreadCount(prevUnreadCount);
     }

@@ -27,8 +27,31 @@ export const SUPABASE_CONFIGURED = !!(supabaseUrl && supabaseAnonKey);
 function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 15000);
+
+  // 如果调用方已经提供了 signal，监听它并同步 abort
+  if (options.signal) {
+    if (options.signal.aborted) {
+      controller.abort(options.signal.reason);
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(options.signal.reason), { once: true });
+    }
+  }
+
   return fetch(url, { ...options, signal: controller.signal })
     .finally(() => clearTimeout(tid));
+}
+
+/**
+ * 给任意 Supabase 查询加上超时保护
+ * 防止 Supabase client 内部 Promise 链吞掉 AbortError 导致永远 pending
+ */
+export function withTimeout(supabaseQuery, timeoutMs = 20000) {
+  return Promise.race([
+    supabaseQuery,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('请求超时，请检查网络后重试')), timeoutMs)
+    ),
+  ]);
 }
 
 export const supabase = createClient(

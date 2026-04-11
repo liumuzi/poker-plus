@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED, withTimeout } from '../lib/supabase';
 import { MOCK_POSTS } from '../data/mockPosts';
 
 const PAGE_SIZE = 20;
@@ -48,7 +48,7 @@ export function usePosts(typeFilter = 'all') {
 
       if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-      const { data, error: queryError } = await query;
+      const { data, error: queryError } = await withTimeout(query);
       if (queryError) {
         console.warn('[usePosts] load error:', queryError.message);
         setError(queryError.message);
@@ -61,7 +61,7 @@ export function usePosts(typeFilter = 'all') {
       }
     } catch (err) {
       console.error('[usePosts] unexpected error:', err);
-      setError(err.name === 'AbortError' ? '请求超时，请检查网络后重试' : '网络错误，请重试');
+      setError(err.message || '网络错误，请重试');
       setPosts([]);
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export function usePosts(typeFilter = 'all') {
 
       if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-      const { data, error: queryError } = await query;
+      const { data, error: queryError } = await withTimeout(query);
       if (queryError) {
         console.warn('[usePosts] loadMore error:', queryError.message);
         // loadMore 失败不清空已有帖子

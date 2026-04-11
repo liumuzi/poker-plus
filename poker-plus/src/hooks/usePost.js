@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, withTimeout } from '../lib/supabase';
 import { MOCK_POSTS } from '../data/mockPosts';
 
 const MOCK_COMMENTS = {
@@ -53,15 +53,17 @@ export function usePost(postId) {
       }
 
       try {
-        const [{ data: postData, error: postError }, { data: commentData, error: commentError }] = await Promise.all([
-          supabase.from('posts')
-            .select('*, profile:profiles(nickname, avatar_url)')
-            .eq('id', postId).single(),
-          supabase.from('comments')
-            .select('*, profile:profiles(nickname, avatar_url)')
-            .eq('post_id', postId).is('parent_id', null)
-            .order('created_at', { ascending: true }),
-        ]);
+        const [{ data: postData, error: postError }, { data: commentData, error: commentError }] = await withTimeout(
+          Promise.all([
+            supabase.from('posts')
+              .select('*, profile:profiles(nickname, avatar_url)')
+              .eq('id', postId).single(),
+            supabase.from('comments')
+              .select('*, profile:profiles(nickname, avatar_url)')
+              .eq('post_id', postId).is('parent_id', null)
+              .order('created_at', { ascending: true }),
+          ])
+        );
 
         if (postError) {
           console.warn('[usePost] fetch post error:', postError.message);
@@ -124,21 +126,21 @@ export function usePost(postId) {
       return { error: null };
     }
 
-    const { error } = await supabase.from('comments').insert({
+    const { error } = await withTimeout(supabase.from('comments').insert({
       post_id: postId, user_id: userId,
       parent_id: parentId, reply_to_id: replyToId, content,
-    });
+    }));
     if (!error) {
       setPost(prev => prev ? { ...prev, comment_count: (prev.comment_count || 0) + 1 } : prev);
       // 重新拉取评论树
-      const { data: commentData } = await supabase.from('comments')
+      const { data: commentData } = await withTimeout(supabase.from('comments')
         .select('*, profile:profiles(nickname, avatar_url)')
         .eq('post_id', postId).is('parent_id', null)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true }));
       if (commentData) {
-        const { data: replyData } = await supabase.from('comments')
+        const { data: replyData } = await withTimeout(supabase.from('comments')
           .select('*, profile:profiles(nickname, avatar_url)')
-          .eq('post_id', postId).not('parent_id', 'is', null);
+          .eq('post_id', postId).not('parent_id', 'is', null));
         const replyMap = {};
         (replyData || []).forEach(r => {
           if (!replyMap[r.parent_id]) replyMap[r.parent_id] = [];
@@ -152,7 +154,7 @@ export function usePost(postId) {
 
   const deletePost = async () => {
     if (MOCK_MODE) return { error: null };
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    const { error } = await withTimeout(supabase.from('posts').delete().eq('id', postId));
     return { error };
   };
 
@@ -161,7 +163,7 @@ export function usePost(postId) {
       setPost(prev => prev ? { ...prev, ...updates } : prev);
       return { error: null };
     }
-    const { error } = await supabase.from('posts').update(updates).eq('id', postId);
+    const { error } = await withTimeout(supabase.from('posts').update(updates).eq('id', postId));
     if (!error) setPost(prev => prev ? { ...prev, ...updates } : prev);
     return { error };
   };

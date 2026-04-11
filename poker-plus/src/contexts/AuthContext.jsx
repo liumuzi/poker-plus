@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MOCK_MODE, supabase, SUPABASE_CONFIGURED } from '../lib/supabase';
+import { MOCK_MODE, supabase, SUPABASE_CONFIGURED, withTimeout } from '../lib/supabase';
 
 // ── Mock 用户（MOCK_MODE = true 时使用）──────────────────────
 const MOCK_USER = null; // null = 未登录；改为对象模拟已登录状态
@@ -191,13 +191,17 @@ export function AuthProvider({ children }) {
     if (!SUPABASE_CONFIGURED) {
       return { error: { message: '数据库未配置，无法保存。请联系管理员检查服务器环境变量。' } };
     }
+    console.log('[AuthContext] updateProfile called', { userId: user?.id, keys: Object.keys(updates) });
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
-        .select()
-        .single();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('profiles')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('id', user.id)
+          .select()
+          .single()
+      );
+      console.log('[AuthContext] updateProfile result', { success: !error, error: error?.message });
       // 使用服务器返回的完整数据，确保与数据库同步
       if (!error && data) {
         setProfile(data);

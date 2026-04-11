@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../../components/community/UserAvatar';
 import { MOCK_POSTS } from '../../data/mockPosts';
-import { MOCK_MODE, supabase } from '../../lib/supabase';
+import { MOCK_MODE, supabase, withTimeout } from '../../lib/supabase';
 
 // ── 分组 Row 组件 ──────────────────────────────────────────────
 function Row({ icon: Icon, label, value, onClick, danger, rightNode }) {
@@ -80,10 +80,12 @@ export default function SettingsPage({ onBack, onNavigate }) {
   useEffect(() => {
     if (MOCK_MODE) { setMyPostsCount(3); setMyLikesCount(5); return; }
     if (!user) return;
-    supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
-      .then(({ count }) => setMyPostsCount(count ?? 0));
-    supabase.from('likes').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('target_type', 'post')
-      .then(({ count }) => setMyLikesCount(count ?? 0));
+    withTimeout(supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id))
+      .then(({ count }) => setMyPostsCount(count ?? 0))
+      .catch(() => {});
+    withTimeout(supabase.from('likes').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('target_type', 'post'))
+      .then(({ count }) => setMyLikesCount(count ?? 0))
+      .catch(() => {});
   }, [user]);
 
   // 头像上传
@@ -98,6 +100,7 @@ export default function SettingsPage({ onBack, onNavigate }) {
 
   // 保存资料
   const handleSave = async () => {
+    console.log('[SettingsPage] handleSave called');
     setSaving(true);
     setSaveError('');
     try {
@@ -111,7 +114,9 @@ export default function SettingsPage({ onBack, onNavigate }) {
         updates.nickname = nickname.trim();
         updates.nickname_changed_at = new Date().toISOString();
       }
+      console.log('[SettingsPage] calling updateProfile', { nicknameChanged });
       const { error } = await updateProfile(updates);
+      console.log('[SettingsPage] updateProfile returned', { error: error?.message });
       if (error) { setSaveError(error.message); return; }
       setEditing(false);
     } catch (err) {
@@ -128,11 +133,16 @@ export default function SettingsPage({ onBack, onNavigate }) {
       setPwError('密码至少 8 位，需含字母和数字'); return;
     }
     setPwSaving(true); setPwError('');
-    const { error } = await supabase.auth.updateUser({ password: newPw });
-    setPwSaving(false);
-    if (error) { setPwError(error.message); return; }
-    setPwDone(true); setNewPw('');
-    setTimeout(() => { setPwDone(false); setShowPwForm(false); }, 2000);
+    try {
+      const { error } = await withTimeout(supabase.auth.updateUser({ password: newPw }));
+      if (error) { setPwError(error.message); return; }
+      setPwDone(true); setNewPw('');
+      setTimeout(() => { setPwDone(false); setShowPwForm(false); }, 2000);
+    } catch (err) {
+      setPwError(err.message || '修改失败，请稍后重试');
+    } finally {
+      setPwSaving(false);
+    }
   };
 
   // 退出登录

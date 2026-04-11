@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_MODE, supabase } from '../lib/supabase';
+import { MOCK_MODE, supabase, withTimeout } from '../lib/supabase';
 import { MOCK_POSTS } from '../data/mockPosts';
 
 // Mock profiles keyed by user_id
@@ -37,7 +37,7 @@ export function useUserPosts(userId) {
     }
 
     try {
-      const [profileRes, postsRes] = await Promise.all([
+      const [profileRes, postsRes] = await withTimeout(Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).single(),
         supabase
           .from('posts')
@@ -46,7 +46,7 @@ export function useUserPosts(userId) {
           .eq('is_hidden', false)
           .order('created_at', { ascending: false })
           .limit(20),
-      ]);
+      ]));
 
       if (profileRes.error) {
         console.warn('[useUserPosts] fetch profile error:', profileRes.error.message);
