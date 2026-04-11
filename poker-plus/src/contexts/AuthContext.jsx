@@ -183,7 +183,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const updateProfile = async (updates) => {
+  const updateProfile = async (updates, _retryCount = 0) => {
     if (MOCK_MODE) {
       setProfile(prev => ({ ...prev, ...updates }));
       return { error: null };
@@ -191,7 +191,7 @@ export function AuthProvider({ children }) {
     if (!SUPABASE_CONFIGURED) {
       return { error: { message: '数据库未配置，无法保存。请联系管理员检查服务器环境变量。' } };
     }
-    console.log('[AuthContext] updateProfile called', { userId: user?.id, keys: Object.keys(updates) });
+    console.log('[AuthContext] updateProfile called', { userId: user?.id, keys: Object.keys(updates), retry: _retryCount });
     try {
       const { data, error } = await withTimeout(
         supabase
@@ -211,6 +211,12 @@ export function AuthProvider({ children }) {
       return { error };
     } catch (err) {
       console.error('[AuthContext] updateProfile unexpected error:', err);
+      // 超时或网络错误：自动重试一次
+      if (_retryCount < 1) {
+        console.warn('[AuthContext] updateProfile retrying after error...');
+        await new Promise(r => setTimeout(r, 2000));
+        return updateProfile(updates, _retryCount + 1);
+      }
       const message = err.name === 'AbortError'
         ? '请求超时，请检查网络后重试'
         : (err.message || '网络错误，请稍后重试');

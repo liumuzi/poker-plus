@@ -5,11 +5,21 @@ export const MOCK_MODE = false;
 // 优先使用运行时注入的环境变量（window.__ENV__），占位符视为无效，fallback 到构建时变量
 const runtimeUrl = window.__ENV__?.VITE_SUPABASE_URL;
 const runtimeKey = window.__ENV__?.VITE_SUPABASE_ANON_KEY;
-const supabaseUrl = (runtimeUrl && !runtimeUrl.includes('RUNTIME_INJECTION')) ? runtimeUrl : import.meta.env.VITE_SUPABASE_URL;
+const runtimeProxy = window.__ENV__?.VITE_SUPABASE_USE_PROXY;
+
+// 直连 Supabase URL（用于诊断和 fallback）
+const directUrl = (runtimeUrl && !runtimeUrl.includes('RUNTIME_INJECTION')) ? runtimeUrl : import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = (runtimeKey && !runtimeKey.includes('RUNTIME_INJECTION')) ? runtimeKey : import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// 在 Docker 部署中，通过 nginx 反向代理访问 Supabase，避免 GFW 封锁
+// 浏览器 → 用户服务器(nginx /supabase-proxy/) → Supabase
+const useProxy = runtimeProxy === 'true' || runtimeProxy === true;
+const supabaseUrl = (useProxy && directUrl)
+  ? `${window.location.origin}/supabase-proxy`
+  : directUrl;
+
 // 配置诊断日志（帮助排查服务器部署问题）
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!directUrl || !supabaseAnonKey) {
   console.error(
     '[Supabase] ❌ 缺少必需的配置！请检查环境变量。\n' +
     `  运行时注入 (window.__ENV__): URL=${runtimeUrl ? '已设置' : '(空)'}, KEY=${runtimeKey ? '已设置' : '(空)'}\n` +
@@ -17,11 +27,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
     '  解决方案：确保 Docker 启动时设置了 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY 环境变量'
   );
 } else {
-  console.info('[Supabase] ✅ 配置已加载');
+  console.info(`[Supabase] ✅ 配置已加载${useProxy ? '（通过反向代理）' : ''}`);
 }
 
 // Supabase 配置缺失标记（供其他模块检查）
-export const SUPABASE_CONFIGURED = !!(supabaseUrl && supabaseAnonKey);
+export const SUPABASE_CONFIGURED = !!(directUrl && supabaseAnonKey);
 
 // 带 15s 超时的 fetch，防止弱网/GFW 环境下请求永久 pending
 function fetchWithTimeout(url, options = {}) {
