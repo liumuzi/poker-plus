@@ -109,7 +109,42 @@ CREATE TABLE blocked_keywords (
   active   BOOLEAN DEFAULT TRUE
 );
 
--- ── 7. Triggers: maintain count fields ─────────────────────
+-- ── 7. notifications ────────────────────────────────────────
+CREATE TABLE notifications (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  actor_id    UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  type        TEXT NOT NULL CHECK (type IN ('like_post', 'like_comment', 'comment', 'reply')),
+  target_type TEXT CHECK (target_type IN ('post', 'comment')),
+  target_id   UUID,
+  message     TEXT,
+  is_read     BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id, created_at DESC);
+
+-- ── 8. saved_games ─────────────────────────────────────────
+CREATE TABLE saved_games (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID    NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  game_data   JSONB   NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_saved_games_user_id ON saved_games(user_id, created_at DESC);
+
+-- ── 9. ledger_records ──────────────────────────────────────
+CREATE TABLE ledger_records (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID    NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  record_data JSONB   NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_ledger_records_user_id ON ledger_records(user_id, created_at DESC);
+
+-- ── 10. Triggers: maintain count fields ─────────────────────
 
 -- post like_count
 CREATE OR REPLACE FUNCTION update_post_like_count() RETURNS TRIGGER AS $$
@@ -171,20 +206,25 @@ CREATE TRIGGER trg_profile_post_count
   AFTER INSERT OR DELETE ON posts FOR EACH ROW
   EXECUTE FUNCTION update_profile_post_count();
 
--- ── 8. RLS ─────────────────────────────────────────────────
+-- ── 11. RLS ─────────────────────────────────────────────────
 ALTER TABLE profiles  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE likes     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_games   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ledger_records ENABLE ROW LEVEL SECURITY;
 
 -- profiles
 CREATE POLICY "profiles_public_read"  ON profiles FOR SELECT USING (true);
+CREATE POLICY "profiles_own_insert"   ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_own_update"   ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- posts
 CREATE POLICY "posts_public_read"  ON posts FOR SELECT USING (is_hidden = false);
 CREATE POLICY "posts_auth_insert"  ON posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "posts_own_update"   ON posts FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "posts_own_delete"   ON posts FOR DELETE USING (auth.uid() = user_id);
 
 -- comments
@@ -198,3 +238,13 @@ CREATE POLICY "likes_auth_manage" ON likes FOR ALL   USING (auth.uid() = user_id
 
 -- reports
 CREATE POLICY "reports_auth_insert" ON reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+
+-- notifications
+CREATE POLICY "notifications_own_read"   ON notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "notifications_own_update" ON notifications FOR UPDATE USING (auth.uid() = user_id);
+
+-- saved_games
+CREATE POLICY "saved_games_own_all" ON saved_games FOR ALL USING (auth.uid() = user_id);
+
+-- ledger_records
+CREATE POLICY "ledger_records_own_all" ON ledger_records FOR ALL USING (auth.uid() = user_id);

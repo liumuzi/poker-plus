@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MOCK_MODE, supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── Mock 通知数据 ──────────────────────────────────────────────
 const MOCK_NOTIFICATIONS = [
@@ -44,12 +45,20 @@ const MOCK_NOTIFICATIONS = [
  * 通知列表
  */
 export function useNotifications() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading]             = useState(true);
+  const [loading, setLoading]             = useState(false);
   const [unreadCount, setUnreadCount]     = useState(0);
   const [error, setError]                 = useState(null); // 新增：错误状态
 
   const load = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -85,13 +94,13 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { load(); }, [load]);
 
   // Real-time: listen for new notifications
   useEffect(() => {
-    if (MOCK_MODE) return;
+    if (MOCK_MODE || !user) return;
     const channel = supabase
       .channel('notifications-realtime')
       .on('postgres_changes',
@@ -103,7 +112,7 @@ export function useNotifications() {
       )
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [user]);
 
   const markAllRead = async () => {
     if (MOCK_MODE) {
@@ -118,7 +127,7 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
     
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', user?.id).eq('is_read', false);
     if (error) {
       console.warn('[useNotifications] markAllRead error:', error.message);
       // 回滚到之前的状态

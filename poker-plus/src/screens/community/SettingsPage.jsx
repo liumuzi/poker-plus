@@ -99,22 +99,29 @@ export default function SettingsPage({ onBack, onNavigate }) {
   // 保存资料
   const handleSave = async () => {
     setSaving(true);
-    const updates = { bio: bio.trim() };
-    const nicknameChanged = nickname.trim() !== (profile?.nickname || '');
-    if (nicknameChanged) {
-      if (!canChangeNickname) {
-        setSaveError(`昵称每 30 天只能修改一次，还需等待 ${nicknameCountdown} 天`);
-        setSaving(false);
-        return;
-      }
-      updates.nickname = nickname.trim();
-      updates.nickname_changed_at = new Date().toISOString();
-    }
-    const { error } = await updateProfile(updates);
-    setSaving(false);
-    if (error) { setSaveError(error.message); return; }
     setSaveError('');
-    setEditing(false);
+    try {
+      const updates = { bio: bio.trim() };
+      const nicknameChanged = nickname.trim() !== (profile?.nickname || '');
+      if (nicknameChanged) {
+        if (!canChangeNickname) {
+          setSaveError(`昵称每 30 天只能修改一次，还需等待 ${nicknameCountdown} 天`);
+          setSaving(false);
+          return;
+        }
+        updates.nickname = nickname.trim();
+        updates.nickname_changed_at = new Date().toISOString();
+      }
+      const { error } = await updateProfile(updates);
+      if (error) { setSaveError(error.message); return; }
+      setSaveError('');
+      setEditing(false);
+    } catch (err) {
+      console.error('[SettingsPage] handleSave error:', err);
+      setSaveError(err.message || '保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // 修改密码

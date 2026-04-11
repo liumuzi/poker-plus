@@ -35,9 +35,14 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
   const handleComment = async (content) => {
     if (!isLoggedIn) { setShowAuth(true); return; }
     setSubmitting(true);
-    await addComment(content, replyTo?.id || null, replyTo?.id || null, user.id);
-    setReplyTo(null);
-    setSubmitting(false);
+    try {
+      await addComment(content, replyTo?.id || null, replyTo?.id || null, user.id);
+      setReplyTo(null);
+    } catch (err) {
+      console.error('[PostDetail] handleComment error:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleNeedAuth = () => setShowAuth(true);
@@ -45,9 +50,14 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
   const handleDelete = async () => {
     if (!confirm('确认删除这篇帖子？此操作不可撤销。')) return;
     setDeleting(true);
-    await deletePost();
-    setDeleting(false);
-    onBack();
+    try {
+      await deletePost();
+      onBack();
+    } catch (err) {
+      console.error('[PostDetail] handleDelete error:', err);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
