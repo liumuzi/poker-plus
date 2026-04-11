@@ -21,6 +21,7 @@ export function useLedger() {
   const { user } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // 加载记录
   useEffect(() => {
@@ -43,7 +44,11 @@ export function useLedger() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) return;
+      if (error) {
+        console.warn('[useLedger] fetch error:', error.message);
+        setError(error.message);
+        return;
+      }
 
       const migratedKey = `${MIGRATED_KEY}_${user.id}`;
       const alreadyMigrated = localStorage.getItem(migratedKey);
@@ -177,5 +182,5 @@ export function useLedger() {
     return Object.values(map).sort((a, b) => b.profit - a.profit);
   }, [records]);
 
-  return { records, addRecord, updateRecord, deleteRecord, summary, savedLocations, locationStats, loading };
+  return { records, addRecord, updateRecord, deleteRecord, summary, savedLocations, locationStats, loading, error };
 }

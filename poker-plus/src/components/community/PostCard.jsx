@@ -35,7 +35,7 @@ export default function PostCard({ post, onClick, onAvatarClick }) {
           <UserAvatar nickname={profile?.nickname} avatarUrl={profile?.avatar_url} size={32} />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-gray-900 text-sm font-bold truncate block">{profile?.nickname}</span>
+          <span className="text-gray-900 text-sm font-bold truncate block">{profile?.nickname || '匿名用户'}</span>
         </div>
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
           type === 'replay'

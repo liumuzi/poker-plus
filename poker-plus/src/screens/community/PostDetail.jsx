@@ -22,7 +22,7 @@ function relativeTime(iso) {
 
 export default function PostDetail({ postId, onBack, onNavigate }) {
   const { user, isLoggedIn } = useAuth();
-  const { post, comments, loading, addComment, deletePost } = usePost(postId);
+  const { post, comments, loading, error, addComment, deletePost } = usePost(postId);
   const [replyTo, setReplyTo]       = useState(null); // { id, nickname }
   const [showAuth, setShowAuth]     = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -64,6 +64,15 @@ export default function PostDetail({ postId, onBack, onNavigate }) {
     return (
       <div className="flex flex-col min-h-screen bg-gray-900 items-center justify-center">
         <Loader2 size={28} className="text-gray-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-900 items-center justify-center">
+        <p className="text-red-400 text-sm">加载失败: {error}</p>
+        <button onClick={onBack} className="text-blue-400 text-sm mt-4">返回</button>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MOCK_MODE, supabase } from '../lib/supabase';
-import { MOCK_POSTS } from './usePosts';
+import { MOCK_POSTS } from '../data/mockPosts';
 
 // Mock profiles keyed by user_id
 const MOCK_PROFILES = {

@@ -1,7 +1,7 @@
 // src/utils/equity.js
 import { Hand } from 'pokersolver';
+import { RANKS } from '../constants/poker';
 
-const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
 const SUITS = ['s','h','d','c'];
 
 export function buildDeck() {

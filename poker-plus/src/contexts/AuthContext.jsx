@@ -147,12 +147,13 @@ export function AuthProvider({ children }) {
     setUser(null);
     setProfile(null);
     // 后台清除本地 session 和服务器端 token
-    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-    supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+    supabase.auth.signOut({ scope: 'local' }).catch(err => console.warn('[AuthContext] signOut local error:', err));
+    supabase.auth.signOut({ scope: 'global' }).catch(err => console.warn('[AuthContext] signOut global error:', err));
   };
 
   const uploadAvatar = async (file) => {
     if (MOCK_MODE) return { url: null, error: new Error('Mock mode') };
+    if (!user?.id) return { url: null, error: { message: '未登录，请先登录' } };
     try {
       const ext = file.name.split('.').pop();
       const path = `${user.id}/avatar.${ext}`;

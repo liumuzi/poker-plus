@@ -188,12 +188,6 @@ export function checkRoundEnd(players, highestBet, bettingRound) {
   }
 
   // 所有可行动玩家已行动且下注齐平
-  const standingCount = nonFolded.length;
-
-  if (standingCount <= 1) {
-    return { ended: true, reason: 'resolution', nextStreet: null };
-  }
-
   if (bettingRound === 3) {
     return { ended: true, reason: 'resolution', nextStreet: null };
   }

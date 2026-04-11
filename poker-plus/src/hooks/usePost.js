@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MOCK_MODE, supabase } from '../lib/supabase';
-import { MOCK_POSTS } from './usePosts';
+import { MOCK_POSTS } from '../data/mockPosts';
 
 const MOCK_COMMENTS = {
   '1': [

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../../components/community/UserAvatar';
-import { MOCK_POSTS } from '../../hooks/usePosts';
+import { MOCK_POSTS } from '../../data/mockPosts';
 import { MOCK_MODE, supabase } from '../../lib/supabase';
 
 // ── 分组 Row 组件 ──────────────────────────────────────────────
