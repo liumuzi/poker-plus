@@ -181,9 +181,11 @@ export function usePosts(typeFilter = 'all') {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor]   = useState(null); // last post created_at
+  const [error, setError]     = useState(null); // 新增：错误状态
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     setCursor(null);
 
     if (MOCK_MODE) {
@@ -206,12 +208,20 @@ export function usePosts(typeFilter = 'all') {
 
       if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-      const { data } = await query;
-      const list = data || [];
-      setPosts(list);
-      setHasMore(list.length === PAGE_SIZE);
-      if (list.length > 0) setCursor(list[list.length - 1].created_at);
-    } catch {
+      const { data, error: queryError } = await query;
+      if (queryError) {
+        console.warn('[usePosts] load error:', queryError.message);
+        setError(queryError.message);
+        setPosts([]);
+      } else {
+        const list = data || [];
+        setPosts(list);
+        setHasMore(list.length === PAGE_SIZE);
+        if (list.length > 0) setCursor(list[list.length - 1].created_at);
+      }
+    } catch (err) {
+      console.error('[usePosts] unexpected error:', err);
+      setError('网络错误，请重试');
       setPosts([]);
     } finally {
       setLoading(false);
@@ -232,13 +242,18 @@ export function usePosts(typeFilter = 'all') {
 
       if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
-      const { data } = await query;
-      const list = data || [];
-      setPosts(prev => [...prev, ...list]);
-      setHasMore(list.length === PAGE_SIZE);
-      if (list.length > 0) setCursor(list[list.length - 1].created_at);
-    } catch {
-      // keep existing posts
+      const { data, error: queryError } = await query;
+      if (queryError) {
+        console.warn('[usePosts] loadMore error:', queryError.message);
+        // loadMore 失败不清空已有帖子
+      } else {
+        const list = data || [];
+        setPosts(prev => [...prev, ...list]);
+        setHasMore(list.length === PAGE_SIZE);
+        if (list.length > 0) setCursor(list[list.length - 1].created_at);
+      }
+    } catch (err) {
+      console.error('[usePosts] loadMore unexpected error:', err);
     } finally {
       setLoadingMore(false);
     }
@@ -246,7 +261,7 @@ export function usePosts(typeFilter = 'all') {
 
   useEffect(() => { load(); }, [load]);
 
-  return { posts, loading, loadingMore, hasMore, loadMore, refresh: load };
+  return { posts, loading, loadingMore, hasMore, loadMore, refresh: load, error };
 }
 
 export { MOCK_POSTS };

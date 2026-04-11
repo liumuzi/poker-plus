@@ -47,9 +47,12 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [unreadCount, setUnreadCount]     = useState(0);
+  const [error, setError]                 = useState(null); // 新增：错误状态
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
+
     if (MOCK_MODE) {
       await new Promise(r => setTimeout(r, 300));
       setNotifications(MOCK_NOTIFICATIONS);
@@ -57,15 +60,31 @@ export function useNotifications() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from('notifications')
-      .select('*, actor:profiles!actor_id(nickname, avatar_url)')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    const list = data || [];
-    setNotifications(list);
-    setUnreadCount(list.filter(n => !n.is_read).length);
-    setLoading(false);
+
+    try {
+      const { data, error: queryError } = await supabase
+        .from('notifications')
+        .select('*, actor:profiles!actor_id(nickname, avatar_url)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (queryError) {
+        console.warn('[useNotifications] load error:', queryError.message);
+        setError(queryError.message);
+        setNotifications([]);
+        setUnreadCount(0);
+      } else {
+        const list = data || [];
+        setNotifications(list);
+        setUnreadCount(list.filter(n => !n.is_read).length);
+      }
+    } catch (err) {
+      console.error('[useNotifications] unexpected error:', err);
+      setError('网络错误，请重试');
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -92,9 +111,21 @@ export function useNotifications() {
       setUnreadCount(0);
       return;
     }
-    await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    
+    // Optimistic update - 先更新 UI，失败时回滚
+    const prevNotifications = notifications;
+    const prevUnreadCount = unreadCount;
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
+    
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    if (error) {
+      console.warn('[useNotifications] markAllRead error:', error.message);
+      // 回滚到之前的状态
+      setNotifications(prevNotifications);
+      setUnreadCount(prevUnreadCount);
+    }
   };
 
-  return { notifications, loading, unreadCount, markAllRead, refresh: load };
+  return { notifications, loading, unreadCount, markAllRead, refresh: load, error };
 }

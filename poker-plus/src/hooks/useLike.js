@@ -30,13 +30,16 @@ export function useLike(targetType, targetId, initialCount = 0, initialLiked = f
 
     try {
       if (newLiked) {
-        await supabase.from('likes').insert({ user_id: userId, target_type: targetType, target_id: targetId });
+        const { error } = await supabase.from('likes').insert({ user_id: userId, target_type: targetType, target_id: targetId });
+        if (error) throw error;
       } else {
-        await supabase.from('likes').delete()
+        const { error } = await supabase.from('likes').delete()
           .match({ user_id: userId, target_type: targetType, target_id: targetId });
+        if (error) throw error;
       }
-    } catch {
+    } catch (err) {
       // Rollback on error
+      console.warn('[useLike] toggle error:', err.message || err);
       setLiked(!newLiked);
       setCount(n => newLiked ? Math.max(n - 1, 0) : n + 1);
     } finally {

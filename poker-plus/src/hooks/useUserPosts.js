@@ -19,10 +19,12 @@ export function useUserPosts(userId) {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null); // 新增：错误状态
 
   const load = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
     setLoading(true);
+    setError(null);
 
     if (MOCK_MODE) {
       await new Promise(r => setTimeout(r, 300));
@@ -34,23 +36,39 @@ export function useUserPosts(userId) {
       return;
     }
 
-    const [profileRes, postsRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
-      supabase
-        .from('posts')
-        .select('*, profile:profiles(nickname, avatar_url)')
-        .eq('user_id', userId)
-        .eq('is_hidden', false)
-        .order('created_at', { ascending: false })
-        .limit(20),
-    ]);
+    try {
+      const [profileRes, postsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase
+          .from('posts')
+          .select('*, profile:profiles(nickname, avatar_url)')
+          .eq('user_id', userId)
+          .eq('is_hidden', false)
+          .order('created_at', { ascending: false })
+          .limit(20),
+      ]);
 
-    setProfile(profileRes.data || null);
-    setPosts(postsRes.data || []);
-    setLoading(false);
+      if (profileRes.error) {
+        console.warn('[useUserPosts] fetch profile error:', profileRes.error.message);
+      }
+      if (postsRes.error) {
+        console.warn('[useUserPosts] fetch posts error:', postsRes.error.message);
+        setError(postsRes.error.message);
+      }
+
+      setProfile(profileRes.data || null);
+      setPosts(postsRes.data || []);
+    } catch (err) {
+      console.error('[useUserPosts] unexpected error:', err);
+      setError('网络错误，请重试');
+      setProfile(null);
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
   }, [userId]);
 
   useEffect(() => { load(); }, [load]);
 
-  return { profile, posts, loading };
+  return { profile, posts, loading, error, refresh: load };
 }
