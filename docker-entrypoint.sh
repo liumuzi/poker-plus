@@ -24,13 +24,20 @@ if [ -n "${VITE_SUPABASE_URL}" ]; then
   # 提取 Supabase 主机名（去掉协议和路径）
   SUPABASE_HOST=$(echo "${VITE_SUPABASE_URL}" | sed -E 's|https?://([^/]+).*|\1|')
 
+  # 从 /etc/resolv.conf 自动检测 DNS（Docker 内部通常是 127.0.0.11）
+  # 回退到公共 DNS（8.8.8.8 1.1.1.1）
+  if [ -f /etc/resolv.conf ]; then
+    AUTO_RESOLVERS=$(grep '^nameserver' /etc/resolv.conf | head -3 | awk '{print $2}' | tr '\n' ' ' | sed 's/ *$//')
+  fi
+  RESOLVERS="${AUTO_RESOLVERS:-8.8.8.8 1.1.1.1}"
+
   cat > /etc/nginx/supabase-proxy.conf << PROXYEOF
 # Auto-generated Supabase reverse proxy
 # Proxies /supabase-proxy/* -> ${VITE_SUPABASE_URL}/*
 location /supabase-proxy/ {
-    # 使用外部 DNS 解析器，避免 nginx 启动时缓存的 IP 过期后代理失败
+    # DNS 解析器（自动检测 Docker 内部 DNS + 公共 DNS 回退）
     # valid=300s: 每 5 分钟重新解析 DNS（Supabase IP 可能变化）
-    resolver 8.8.8.8 1.1.1.1 valid=300s ipv6=off;
+    resolver ${RESOLVERS} valid=300s ipv6=off;
 
     # 使用变量触发运行时 DNS 解析（literal URL 只在启动时解析一次）
     set \$supabase_upstream ${VITE_SUPABASE_URL};
@@ -58,6 +65,7 @@ location /supabase-proxy/ {
 PROXYEOF
   USE_PROXY='true'
   echo "   Supabase proxy: /supabase-proxy/ -> ${VITE_SUPABASE_URL}"
+  echo "   DNS resolvers: ${RESOLVERS}"
 else
   # Create empty config so nginx include doesn't fail
   echo "# No Supabase URL configured, proxy disabled" > /etc/nginx/supabase-proxy.conf

@@ -42,14 +42,16 @@ export const SUPABASE_CONFIGURED = !!(directUrl && supabaseAnonKey);
  *
  * 策略：
  * 1. 如果启用了代理，先尝试代理请求（8s 超时）
- * 2. 如果代理失败（超时/5xx/404/网络错误），自动回退到直连（15s 超时）
+ * 2. 如果代理失败（超时/5xx/404/网络错误），自动回退到直连（12s 超时）
  * 3. 如果没有代理，直接请求（15s 超时）
  *
- * 这样即使 nginx 代理未配置或代理挂了，也能自动回退到直连
+ * 重要：此函数 **永远不会抛出异常**。
+ * 当网络完全不可用时，返回合成的 HTTP 408 Response 对象。
+ * 这样 Supabase client 内部 Promise 链不会因 AbortError 被吞掉而永远 pending。
  */
 function fetchWithSmartFallback(url, options = {}) {
   const PROXY_TIMEOUT = 8000;
-  const DIRECT_TIMEOUT = 15000;
+  const DIRECT_TIMEOUT = 12000;
 
   /**
    * 使用 Promise.race 保证超时可靠触发
@@ -74,7 +76,7 @@ function fetchWithSmartFallback(url, options = {}) {
     const timeoutPromise = new Promise((_, reject) => {
       tid = setTimeout(() => {
         controller.abort();
-        reject(new DOMException('Request timed out', 'AbortError'));
+        reject(new DOMException('Request timed out', 'TimeoutError'));
       }, timeoutMs);
     });
     const fetchPromise = fetch(reqUrl, { ...options, signal: controller.signal });
@@ -84,6 +86,18 @@ function fetchWithSmartFallback(url, options = {}) {
       .finally(() => clearTimeout(tid));
   };
 
+  /**
+   * 将网络错误/超时转为合成 Response，防止 Supabase client 吞掉异常后 promise 永远 pending
+   */
+  const errorToResponse = (err) => {
+    const msg = err.message || '网络请求失败';
+    console.error(`[Supabase] 请求最终失败: ${msg}`);
+    return new Response(
+      JSON.stringify({ message: msg, hint: '请检查网络连接后重试' }),
+      { status: 408, statusText: 'Request Timeout', headers: { 'Content-Type': 'application/json' } }
+    );
+  };
+
   // 如果当前请求走代理，先试代理 → 再试直连
   if (proxyBaseUrl && directUrl && url.startsWith(proxyBaseUrl)) {
     const t0 = Date.now();
@@ -91,30 +105,32 @@ function fetchWithSmartFallback(url, options = {}) {
       .then(res => {
         // 代理配置错误或上游不可达：404/502/503/504 → 回退直连
         if (res.status === 502 || res.status === 503 || res.status === 504 || res.status === 404) {
-          console.warn(`[Supabase] 代理返回 ${res.status}（${Date.now() - t0}ms），回退到直连...`);
+          console.info(`[Supabase] 代理返回 ${res.status}（${Date.now() - t0}ms），回退到直连...`);
           const directRequestUrl = url.replace(proxyBaseUrl, directUrl);
-          return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT);
+          return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT).catch(errorToResponse);
         }
         return res;
       })
       .catch(proxyErr => {
         // 代理超时或网络错误，回退到直连
-        console.warn(`[Supabase] 代理失败(${proxyErr.name}: ${proxyErr.message}，${Date.now() - t0}ms)，回退到直连...`);
+        console.info(`[Supabase] 代理失败(${proxyErr.name}: ${proxyErr.message}，${Date.now() - t0}ms)，回退到直连...`);
         const directRequestUrl = url.replace(proxyBaseUrl, directUrl);
-        return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT);
+        return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT).catch(errorToResponse);
       });
   }
 
-  // 无代理，直接请求
-  return makeTimedFetch(url, DIRECT_TIMEOUT);
+  // 无代理，直接请求（错误也转为 Response）
+  return makeTimedFetch(url, DIRECT_TIMEOUT).catch(errorToResponse);
 }
 
 /**
- * 给任意 Supabase 查询加上超时保护
- * 防止 Supabase client 内部 Promise 链吞掉 AbortError 导致永远 pending
- * 超时设为 30s，以容纳代理（8s）+ 直连回退（15s）的总时间
+ * 给任意 Supabase 查询加上超时保护（安全网）
+ *
+ * fetchWithSmartFallback 已保证不会抛出异常，但仍保留此安全网：
+ * - 代理（8s）+ 直连（12s）= 最多 20s，安全网设为 25s
+ * - 如果因 Supabase client 内部 bug 导致 promise 永远 pending，25s 后强制失败
  */
-export function withTimeout(supabaseQuery, timeoutMs = 30000) {
+export function withTimeout(supabaseQuery, timeoutMs = 25000) {
   return Promise.race([
     supabaseQuery,
     new Promise((_, reject) =>
