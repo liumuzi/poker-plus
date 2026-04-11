@@ -25,7 +25,7 @@ window.__ENV__ = {
 EOF
 
 echo "✅ Generated env-config.js with runtime environment variables"
-echo "   VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-(not set)}"
+echo "   VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:+configured}"
 
 # 启动 Nginx
 exec nginx -g 'daemon off;'
