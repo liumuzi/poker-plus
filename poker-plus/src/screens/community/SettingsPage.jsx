@@ -106,7 +106,6 @@ export default function SettingsPage({ onBack, onNavigate }) {
       if (nicknameChanged) {
         if (!canChangeNickname) {
           setSaveError(`昵称每 30 天只能修改一次，还需等待 ${nicknameCountdown} 天`);
-          setSaving(false);
           return;
         }
         updates.nickname = nickname.trim();
@@ -114,7 +113,6 @@ export default function SettingsPage({ onBack, onNavigate }) {
       }
       const { error } = await updateProfile(updates);
       if (error) { setSaveError(error.message); return; }
-      setSaveError('');
       setEditing(false);
     } catch (err) {
       console.error('[SettingsPage] handleSave error:', err);
