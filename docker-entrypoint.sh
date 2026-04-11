@@ -28,7 +28,15 @@ if [ -n "${VITE_SUPABASE_URL}" ]; then
 # Auto-generated Supabase reverse proxy
 # Proxies /supabase-proxy/* -> ${VITE_SUPABASE_URL}/*
 location /supabase-proxy/ {
-    proxy_pass ${VITE_SUPABASE_URL}/;
+    # 使用外部 DNS 解析器，避免 nginx 启动时缓存的 IP 过期后代理失败
+    # valid=300s: 每 5 分钟重新解析 DNS（Supabase IP 可能变化）
+    resolver 8.8.8.8 1.1.1.1 valid=300s ipv6=off;
+
+    # 使用变量触发运行时 DNS 解析（literal URL 只在启动时解析一次）
+    set \$supabase_upstream ${VITE_SUPABASE_URL};
+    rewrite ^/supabase-proxy/(.*) /\$1 break;
+    proxy_pass \$supabase_upstream;
+
     proxy_ssl_server_name on;
     proxy_set_header Host ${SUPABASE_HOST};
     proxy_set_header X-Real-IP \$remote_addr;

@@ -42,7 +42,7 @@ export const SUPABASE_CONFIGURED = !!(directUrl && supabaseAnonKey);
  *
  * 策略：
  * 1. 如果启用了代理，先尝试代理请求（8s 超时）
- * 2. 如果代理失败（超时/502/404/网络错误），自动回退到直连（15s 超时）
+ * 2. 如果代理失败（超时/5xx/404/网络错误），自动回退到直连（15s 超时）
  * 3. 如果没有代理，直接请求（15s 超时）
  *
  * 这样即使 nginx 代理未配置或代理挂了，也能自动回退到直连
@@ -51,9 +51,13 @@ function fetchWithSmartFallback(url, options = {}) {
   const PROXY_TIMEOUT = 8000;
   const DIRECT_TIMEOUT = 15000;
 
+  /**
+   * 使用 Promise.race 保证超时可靠触发
+   * 某些浏览器环境下 AbortController.abort() 后 fetch() 不会立即 reject，
+   * 导致 .catch 不执行、回退逻辑被跳过。Promise.race 确保超时后立即 reject。
+   */
   const makeTimedFetch = (reqUrl, timeoutMs) => {
     const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), timeoutMs);
     // 转发调用方的 abort signal
     if (options.signal) {
       if (options.signal.aborted) {
@@ -66,17 +70,28 @@ function fetchWithSmartFallback(url, options = {}) {
         );
       }
     }
-    return fetch(reqUrl, { ...options, signal: controller.signal })
+    let tid;
+    const timeoutPromise = new Promise((_, reject) => {
+      tid = setTimeout(() => {
+        controller.abort();
+        reject(new DOMException('Request timed out', 'AbortError'));
+      }, timeoutMs);
+    });
+    const fetchPromise = fetch(reqUrl, { ...options, signal: controller.signal });
+    // 防止超时胜出后 fetch 的 rejection 成为 unhandled rejection
+    fetchPromise.catch(() => {});
+    return Promise.race([fetchPromise, timeoutPromise])
       .finally(() => clearTimeout(tid));
   };
 
   // 如果当前请求走代理，先试代理 → 再试直连
   if (proxyBaseUrl && directUrl && url.startsWith(proxyBaseUrl)) {
+    const t0 = Date.now();
     return makeTimedFetch(url, PROXY_TIMEOUT)
       .then(res => {
-        // 代理配置错误（nginx 没有生成 proxy 配置）会返回 404/502
-        if (res.status === 502 || res.status === 503 || res.status === 404) {
-          console.warn(`[Supabase] 代理返回 ${res.status}，回退到直连...`);
+        // 代理配置错误或上游不可达：404/502/503/504 → 回退直连
+        if (res.status === 502 || res.status === 503 || res.status === 504 || res.status === 404) {
+          console.warn(`[Supabase] 代理返回 ${res.status}（${Date.now() - t0}ms），回退到直连...`);
           const directRequestUrl = url.replace(proxyBaseUrl, directUrl);
           return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT);
         }
@@ -84,7 +99,7 @@ function fetchWithSmartFallback(url, options = {}) {
       })
       .catch(proxyErr => {
         // 代理超时或网络错误，回退到直连
-        console.warn(`[Supabase] 代理失败(${proxyErr.name}: ${proxyErr.message})，回退到直连...`);
+        console.warn(`[Supabase] 代理失败(${proxyErr.name}: ${proxyErr.message}，${Date.now() - t0}ms)，回退到直连...`);
         const directRequestUrl = url.replace(proxyBaseUrl, directUrl);
         return makeTimedFetch(directRequestUrl, DIRECT_TIMEOUT);
       });
