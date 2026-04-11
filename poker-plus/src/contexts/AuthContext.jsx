@@ -85,7 +85,10 @@ export function AuthProvider({ children }) {
       if (insertError) {
         console.warn('[AuthContext] profile insert error:', insertError.message);
         // 可能是 UNIQUE 冲突（Trigger 刚创建完），再查一次
-        const { data: retry } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        const { data: retry, error: retryError } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if (retryError) {
+          console.warn('[AuthContext] profile retry fetch error:', retryError.message);
+        }
         setProfile(retry || null);
       } else {
         setProfile(created);

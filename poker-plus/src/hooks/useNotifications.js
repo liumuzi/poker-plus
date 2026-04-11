@@ -111,12 +111,19 @@ export function useNotifications() {
       setUnreadCount(0);
       return;
     }
+    
+    // Optimistic update - 先更新 UI，失败时回滚
+    const prevNotifications = notifications;
+    const prevUnreadCount = unreadCount;
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+    
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
     if (error) {
       console.warn('[useNotifications] markAllRead error:', error.message);
-    } else {
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      // 回滚到之前的状态
+      setNotifications(prevNotifications);
+      setUnreadCount(prevUnreadCount);
     }
   };
 
