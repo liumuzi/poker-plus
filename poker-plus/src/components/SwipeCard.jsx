@@ -130,12 +130,14 @@ export default function SwipeCard({ player }) {
             </p>
           </div>
 
-          <div className="flex justify-between w-full text-[10px] font-black text-slate-300 mb-8 uppercase px-1">
+          <div className="flex justify-between w-full text-[10px] font-black text-slate-300 mb-3 uppercase px-1">
             <span className="text-red-400/80">← 左滑 Fold</span>
             <span className="text-emerald-500/80">
               右滑 {(highestBet === 0 || player.betThisRound === highestBet) ? 'Check' : 'Call'} →
             </span>
           </div>
+
+          <button onClick={handleAllIn} className="w-full bg-red-500 text-white font-black py-3 rounded-xl text-xs shadow-md active:bg-red-600 mb-2 transition-transform active:scale-95">All-in</button>
 
           <div className="grid grid-cols-4 gap-2 w-full">
             <button onClick={() => handleAction('Fold')} className="bg-red-50 text-red-600 font-bold py-3.5 rounded-xl text-xs active:bg-red-100">Fold</button>

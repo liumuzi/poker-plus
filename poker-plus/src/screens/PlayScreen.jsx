@@ -61,6 +61,8 @@ export default function PlayScreen() {
 
   const [showRaiseDrawer, setShowRaiseDrawer] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState('');
+  const [showAllInDrawer, setShowAllInDrawer] = useState(false);
+  const [allInAmount, setAllInAmount] = useState('');
 
   const checkLabel = (highestBet === 0 || activePlayer.betThisRound === highestBet) ? 'Check' : 'Call';
 
@@ -82,6 +84,14 @@ export default function PlayScreen() {
     dispatch({ type: 'PLAYER_ACTION', payload: { action: actionType, amount: amt } });
     setShowRaiseDrawer(false);
     setRaiseAmount('');
+  };
+
+  const handleConfirmAllIn = () => {
+    const amt = parseInt(allInAmount, 10);
+    if (!amt || amt <= 0) return;
+    dispatch({ type: 'PLAYER_ACTION', payload: { action: 'All-in', amount: amt } });
+    setShowAllInDrawer(false);
+    setAllInAmount('');
   };
 
   // 获取当前阶段名称用于导航
@@ -178,9 +188,15 @@ export default function PlayScreen() {
 
       {/* 行动按钮区 */}
       <div className="flex-none px-4 pt-2 pb-3 z-10">
-        {/* 滑动提示 */}
-        <div className="flex justify-between text-[10px] text-slate-400 font-medium mb-2 px-2">
+        {/* 滑动提示 + All-in */}
+        <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium mb-2 px-2">
           <span>← 左滑 Fold</span>
+          <button
+            onClick={() => { setShowAllInDrawer(true); setShowRaiseDrawer(false); setAllInAmount(''); }}
+            className="px-3 py-0.5 rounded-full border border-red-300 text-red-400 text-[10px] font-bold active:scale-95 transition-all active:bg-red-50"
+          >
+            All-in
+          </button>
           <span>右滑 {checkLabel} →</span>
         </div>
         {/* 三列按钮 */}
@@ -192,7 +208,7 @@ export default function PlayScreen() {
             Fold
           </button>
           <button
-            onClick={() => handleAction('Bet')}
+            onClick={() => { handleAction('Bet'); setShowAllInDrawer(false); }}
             className="flex-1 py-3.5 rounded-2xl bg-amber-400 text-amber-900 font-black text-sm shadow-md active:scale-95 transition-all"
           >
             Bet / Raise
@@ -204,6 +220,33 @@ export default function PlayScreen() {
             {checkLabel}
           </button>
         </div>
+
+        {/* All-in 金额输入抽屉 */}
+        {showAllInDrawer && (
+          <div className="mt-3 flex gap-2 items-center">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={allInAmount}
+              onChange={(e) => setAllInAmount(e.target.value)}
+              placeholder="All-in 总额"
+              className="flex-1 py-3 px-4 rounded-2xl bg-white border border-red-200 text-slate-800 font-bold text-sm outline-none focus:border-red-400"
+              autoFocus
+            />
+            <button
+              onClick={handleConfirmAllIn}
+              className="px-5 py-3 rounded-2xl bg-red-500 text-white font-black text-sm shadow-md active:scale-95 transition-all"
+            >
+              确认
+            </button>
+            <button
+              onClick={() => setShowAllInDrawer(false)}
+              className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-400 font-bold text-sm active:scale-95 transition-all"
+            >
+              取消
+            </button>
+          </div>
+        )}
 
         {/* Raise 金额输入抽屉 */}
         {showRaiseDrawer && (
