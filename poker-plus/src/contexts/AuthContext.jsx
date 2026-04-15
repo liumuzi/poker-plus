@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { MOCK_MODE, supabase } from '../lib/supabase';
 
 // ── Mock 用户（MOCK_MODE = true 时使用）──────────────────────
@@ -10,6 +10,8 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  // 用于区分用户主动退出 vs token 刷新失败触发的 SIGNED_OUT
+  const isSigningOutRef = useRef(false);
 
   useEffect(() => {
     if (MOCK_MODE) {
@@ -35,6 +37,31 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          // 用户主动退出时，signOut() 已立即清除状态，这里直接忽略
+          if (isSigningOutRef.current) {
+            isSigningOutRef.current = false;
+            return;
+          }
+          // 非主动退出（如 token 刷新失败）：先验证 session 是否真的消失
+          // 若 getSession 仍能返回有效 session，说明这是一个误发事件，忽略它
+          try {
+            const { data: { session: current } } = await supabase.auth.getSession();
+            if (current?.user) {
+              // Session 仍有效，可能是一次性的网络抖动导致的误发，不清除状态
+              return;
+            }
+          } catch {
+            // getSession 本身也失败，说明网络完全断了，暂不清除状态，等网络恢复
+            return;
+          }
+          // Session 确实消失了（真正过期），清除状态
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         setUser(session?.user ?? null);
         if (session?.user) await fetchProfile(session.user.id, session.user);
         else { setProfile(null); setLoading(false); }
@@ -144,6 +171,8 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     if (MOCK_MODE) { setUser(null); setProfile(null); return; }
     // 立即清除 React 状态，不等待网络（解决中国网络慢导致退出卡住的问题）
+    // 设置 flag 让 onAuthStateChange 忽略由此触发的 SIGNED_OUT 事件
+    isSigningOutRef.current = true;
     setUser(null);
     setProfile(null);
     // 后台清除本地 session 和服务器端 token

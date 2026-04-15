@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Loader2, Bell } from 'lucide-react';
+import { Search, Plus, Loader2, Bell, RefreshCw } from 'lucide-react';
 import { usePosts } from '../../hooks/usePosts';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -17,7 +17,7 @@ export default function CommunityFeed({ onNavigate }) {
   const { isLoggedIn, profile } = useAuth();
   const [tab, setTab]           = useState('all');
   const [showAuth, setShowAuth] = useState(false);
-  const { posts, loading, loadingMore, hasMore, loadMore, error, refresh } = usePosts(tab);
+  const { posts, loading, loadingMore, hasMore, loadMore, refresh, error } = usePosts(tab);
   const { unreadCount }         = useNotifications();
 
   const handleCreate = () => {
@@ -81,12 +81,13 @@ export default function CommunityFeed({ onNavigate }) {
           </div>
         ) : error ? (
           <div className="flex flex-col items-center py-16 gap-3">
-            <p className="text-red-400 text-sm">加载失败: {error}</p>
+            <p className="text-gray-500 text-sm">加载失败，请检查网络后重试</p>
             <button
               onClick={refresh}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gray-800 text-gray-300 text-sm active:scale-95 transition-transform"
             >
-              重试
+              <RefreshCw size={14} />
+              重新加载
             </button>
           </div>
         ) : posts.length === 0 ? (

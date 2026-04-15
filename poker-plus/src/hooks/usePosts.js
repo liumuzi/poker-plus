@@ -13,7 +13,7 @@ export function usePosts(typeFilter = 'all') {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor]   = useState(null); // last post created_at
-  const [error, setError]     = useState(null); // 新增：错误状态
+  const [error, setError]     = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,8 +43,8 @@ export function usePosts(typeFilter = 'all') {
       const { data, error: queryError } = await query;
       if (queryError) {
         console.warn('[usePosts] load error:', queryError.message);
-        setError(queryError.message);
-        setPosts([]);
+        setError(queryError.message || '加载失败');
+        // Keep existing posts rather than clearing to empty on transient errors
       } else {
         const list = data || [];
         setPosts(list);
@@ -54,7 +54,7 @@ export function usePosts(typeFilter = 'all') {
     } catch (err) {
       console.error('[usePosts] unexpected error:', err);
       setError('网络错误，请重试');
-      setPosts([]);
+      // Keep existing posts rather than clearing
     } finally {
       setLoading(false);
     }
