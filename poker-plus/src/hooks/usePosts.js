@@ -9,7 +9,7 @@ const PAGE_SIZE = 20;
  * Feed 数据获取，支持 type 过滤 + cursor-based 无限滚动
  */
 export function usePosts(typeFilter = 'all') {
-  const { loading: authLoading } = useAuth();
+  const { tokenReady } = useAuth();
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -115,8 +115,8 @@ export function usePosts(typeFilter = 'all') {
     }
   }, [hasMore, loadingMore, cursor, typeFilter]);
 
-  // 等 auth 状态确定后再发请求，避免带着 localStorage 里的旧/过期 token 请求
-  useEffect(() => { if (!authLoading) load(); }, [load, authLoading]);
+  // 等 token 验证完成后再发请求，避免带着过期 token 导致 JWT 错误
+  useEffect(() => { if (tokenReady) load(); }, [load, tokenReady]);
 
   return { posts, loading, loadingMore, hasMore, loadMore, refresh: load, error };
 }

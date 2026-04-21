@@ -7,9 +7,12 @@ const MOCK_USER = null; // null = 未登录；改为对象模拟已登录状态
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]           = useState(null);
+  const [profile, setProfile]     = useState(null);
+  const [loading, setLoading]     = useState(true);
+  // tokenReady: true 一旦 getSession() 返回（token 已验证/刷新/清除）
+  // 用于让数据请求知道「现在的 token 状态是干净的，可以安全发请求了」
+  const [tokenReady, setTokenReady] = useState(false);
   // 用于区分用户主动退出 vs token 刷新失败触发的 SIGNED_OUT
   const isSigningOutRef = useRef(false);
 
@@ -24,17 +27,19 @@ export function AuthProvider({ children }) {
         bio: '德州扑克爱好者',
         post_count: 3,
       } : null);
+      setTokenReady(true);
       setLoading(false);
       return;
     }
 
     // 真实模式：监听 Supabase Auth 状态
     // 安全超时：8s 后强制解除 loading，防止网络问题导致 UI 永久卡住
-    const loadingTimer = setTimeout(() => setLoading(false), 8000);
+    const loadingTimer = setTimeout(() => { setTokenReady(true); setLoading(false); }, 8000);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(loadingTimer);
       setUser(session?.user ?? null);
+      setTokenReady(true); // token 已验证，数据请求现在可以安全发出
       if (session?.user) fetchProfile(session.user.id, session.user);
       else setLoading(false);
     });
@@ -181,14 +186,19 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     if (MOCK_MODE) { setUser(null); setProfile(null); return; }
-    // 立即清除 React 状态，不等待网络（解决中国网络慢导致退出卡住的问题）
-    // 设置 flag 让 onAuthStateChange 忽略由此触发的 SIGNED_OUT 事件
     isSigningOutRef.current = true;
+    // 立即清除 React 状态
     setUser(null);
     setProfile(null);
-    // 后台清除本地 session 和服务器端 token
-    supabase.auth.signOut({ scope: 'local' }).catch(err => console.warn('[AuthContext] signOut local error:', err));
-    supabase.auth.signOut({ scope: 'global' }).catch(err => console.warn('[AuthContext] signOut global error:', err));
+    // 直接清除 localStorage 里的 Supabase session（同步，立刻生效）
+    // 避免异步 signOut 还没执行完用户就刷新页面导致 session 复活
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-'))
+        .forEach(k => localStorage.removeItem(k));
+    } catch { /* 忽略 */ }
+    // 后台通知服务器撤销 token（不等待，不阻塞 UI）
+    supabase.auth.signOut({ scope: 'local' }).catch(err => console.warn('[AuthContext] signOut error:', err));
   };
 
   const uploadAvatar = async (file) => {
@@ -244,7 +254,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, loading,
+      user, profile, loading, tokenReady,
       signInWithEmail, signUpWithEmail, signInWithGoogle,
       signOut, updateProfile, uploadAvatar,
       isLoggedIn: !!user,
