@@ -43,15 +43,19 @@ export function usePosts(typeFilter = 'all') {
       return query;
     };
 
+    const isJwtError = (err) =>
+      err?.code === 'PGRST301' || err?.message?.toLowerCase().includes('jwt');
+
     try {
       let { data, error: queryError } = await fetchPosts();
-      // Auto-retry once on network/timeout error
-      if (queryError || data === null) {
-        if (!queryError) {
-          await new Promise(r => setTimeout(r, 2000));
-          ({ data, error: queryError } = await fetchPosts());
-        }
+
+      // JWT 错误：token 可能还在刷新中，等 3s 后用新 token 重试
+      if (isJwtError(queryError)) {
+        console.warn('[usePosts] JWT error, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        ({ data, error: queryError } = await fetchPosts());
       }
+
       if (queryError) {
         console.warn('[usePosts] load error:', queryError.message);
         setError(queryError.message || '加载失败');
@@ -63,9 +67,9 @@ export function usePosts(typeFilter = 'all') {
       }
     } catch (err) {
       console.error('[usePosts] unexpected error (attempt 1):', err);
-      // Auto-retry once after 2s
+      // 网络/超时错误：等 3s 重试一次
       try {
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
         const { data, error: queryError } = await fetchPosts();
         if (queryError) {
           setError(queryError.message || '加载失败');

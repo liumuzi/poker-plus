@@ -33,8 +33,9 @@ export function AuthProvider({ children }) {
     }
 
     // 真实模式：监听 Supabase Auth 状态
-    // 安全超时：8s 后强制解除 loading，防止网络问题导致 UI 永久卡住
-    const loadingTimer = setTimeout(() => { setTokenReady(true); setLoading(false); }, 8000);
+    // 安全超时：20s 后仅解除 loading（spinner 消失），但 tokenReady 不在此设置
+    // tokenReady 只由 getSession() 真正完成后设置，确保 token 一定是刷新后的新鲜值
+    const loadingTimer = setTimeout(() => setLoading(false), 20000);
 
     // getSession() 会自动刷新过期的 token，返回时 token 一定是新鲜可用的
     supabase.auth.getSession()
@@ -105,11 +106,18 @@ export function AuthProvider({ children }) {
    */
   const fetchProfile = async (userId, userData = null, retries = 3) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+
+      // JWT 错误：token 可能刚刚在刷新中，等 3s 后重试一次
+      if (error && (error.code === 'PGRST301' || error.message?.toLowerCase().includes('jwt'))) {
+        console.warn('[AuthContext] fetchProfile JWT error, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        ({ data, error } = await supabase.from('profiles').select('*').eq('id', userId).single());
+      }
 
       // 如果查询失败但不是 "not found"，直接设置 profile 为 null
       if (error && error.code !== 'PGRST116') {
