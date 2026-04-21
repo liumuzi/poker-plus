@@ -29,7 +29,11 @@ export function AuthProvider({ children }) {
     }
 
     // 真实模式：监听 Supabase Auth 状态
+    // 安全超时：8s 后强制解除 loading，防止网络问题导致 UI 永久卡住
+    const loadingTimer = setTimeout(() => setLoading(false), 8000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(loadingTimer);
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id, session.user);
       else setLoading(false);
@@ -67,7 +71,7 @@ export function AuthProvider({ children }) {
         else { setProfile(null); setLoading(false); }
       }
     );
-    return () => subscription.unsubscribe();
+    return () => { subscription.unsubscribe(); clearTimeout(loadingTimer); };
   }, []);
 
   /**

@@ -191,8 +191,11 @@ export default function SummaryScreen({ onShareToCommunity }) {
     setInlineTempName('');
   };
 
-  const handleSave = () => {
-    saveGame({
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await saveGame({
       potSize,
       history,
       players,
@@ -500,9 +503,10 @@ export default function SummaryScreen({ onShareToCommunity }) {
         ) : (
           <button
             onClick={handleSave}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform text-white py-4 rounded-2xl font-black text-sm shadow-[0_10px_30px_rgb(5,150,105,0.4)] border border-emerald-400"
+            disabled={saving}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform text-white py-4 rounded-2xl font-black text-sm shadow-[0_10px_30px_rgb(5,150,105,0.4)] border border-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            保存对局并返回首页
+            {saving ? '保存中…' : '保存对局并返回首页'}
           </button>
         )}
       </div>

@@ -12,7 +12,7 @@ const supabaseAnonKey = (runtimeKey && !runtimeKey.includes('RUNTIME_INJECTION')
 // Auth 端点（token 刷新、登录）给 40s；普通数据请求 20s
 function fetchWithTimeout(url, options = {}) {
   const isAuthEndpoint = typeof url === 'string' && url.includes('/auth/v1/');
-  const timeout = isAuthEndpoint ? 40000 : 20000;
+  const timeout = isAuthEndpoint ? 40000 : 10000;
 
   const controller = new AbortController();
   // 如果调用方已传入 signal，两者任一中止都取消请求
