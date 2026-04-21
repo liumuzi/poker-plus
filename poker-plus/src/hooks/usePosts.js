@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MOCK_MODE, supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { MOCK_POSTS } from '../data/mockPosts';
 
 const PAGE_SIZE = 20;
@@ -8,6 +9,7 @@ const PAGE_SIZE = 20;
  * Feed 数据获取，支持 type 过滤 + cursor-based 无限滚动
  */
 export function usePosts(typeFilter = 'all') {
+  const { loading: authLoading } = useAuth();
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -113,7 +115,8 @@ export function usePosts(typeFilter = 'all') {
     }
   }, [hasMore, loadingMore, cursor, typeFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  // 等 auth 状态确定后再发请求，避免带着 localStorage 里的旧/过期 token 请求
+  useEffect(() => { if (!authLoading) load(); }, [load, authLoading]);
 
   return { posts, loading, loadingMore, hasMore, loadMore, refresh: load, error };
 }
