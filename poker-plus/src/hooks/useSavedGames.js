@@ -24,14 +24,20 @@ function saveLocal(games) {
  * - 未登录：fallback 到 localStorage
  */
 export function useSavedGames() {
-  const { user } = useAuth();
+  const { user, tokenReady } = useAuth();
   const [savedGames, setSavedGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // 新增：错误状态
 
-  // 加载存档
+  // 加载存档（等 token 刷新完成再做云端同步，避免用过期 token）
   useEffect(() => {
     if (MOCK_MODE || !user) {
+      setSavedGames(loadLocal());
+      setLoading(false);
+      return;
+    }
+    if (!tokenReady) {
+      // token 还未就绪：先展示本地数据，等 tokenReady 后再触发云端同步
       setSavedGames(loadLocal());
       setLoading(false);
       return;
@@ -91,7 +97,7 @@ export function useSavedGames() {
     })().catch((err) => {
       console.error('[useSavedGames] unexpected error:', err);
     });
-  }, [user]);
+  }, [user, tokenReady]);
 
   const saveGame = async (gameData) => {
     const date = new Date().toLocaleString();

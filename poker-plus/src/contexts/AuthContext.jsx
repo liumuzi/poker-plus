@@ -36,13 +36,21 @@ export function AuthProvider({ children }) {
     // 安全超时：8s 后强制解除 loading，防止网络问题导致 UI 永久卡住
     const loadingTimer = setTimeout(() => { setTokenReady(true); setLoading(false); }, 8000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(loadingTimer);
-      setUser(session?.user ?? null);
-      setTokenReady(true); // token 已验证，数据请求现在可以安全发出
-      if (session?.user) fetchProfile(session.user.id, session.user);
-      else setLoading(false);
-    });
+    // getSession() 会自动刷新过期的 token，返回时 token 一定是新鲜可用的
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(loadingTimer);
+        setUser(session?.user ?? null);
+        setTokenReady(true); // token 已刷新且有效，数据请求现在可以安全发出
+        if (session?.user) fetchProfile(session.user.id, session.user);
+        else setLoading(false);
+      })
+      .catch(() => {
+        // getSession 完全失败（网络断），解除 loading 让 UI 继续
+        clearTimeout(loadingTimer);
+        setTokenReady(true);
+        setLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -53,24 +61,32 @@ export function AuthProvider({ children }) {
             return;
           }
           // 非主动退出（如 token 刷新失败）：先验证 session 是否真的消失
-          // 若 getSession 仍能返回有效 session，说明这是一个误发事件，忽略它
           try {
             const { data: { session: current } } = await supabase.auth.getSession();
-            if (current?.user) {
-              // Session 仍有效，可能是一次性的网络抖动导致的误发，不清除状态
-              return;
-            }
+            if (current?.user) return; // session 仍有效，误发事件，忽略
           } catch {
-            // getSession 本身也失败，说明网络完全断了，暂不清除状态，等网络恢复
-            return;
+            return; // 网络断，暂不清除状态
           }
-          // Session 确实消失了（真正过期），清除状态
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
+        // INITIAL_SESSION：订阅创建时立刻触发，此时 token 可能还未刷新（stale）
+        // 只更新 user 状态，profile fetch 由上方 getSession().then() 负责（用新鲜 token）
+        if (event === 'INITIAL_SESSION') {
+          setUser(session?.user ?? null);
+          if (!session?.user) {
+            // 无用户的情况，提前解锁 loading（getSession 也会处理，但可以更快）
+            clearTimeout(loadingTimer);
+            setTokenReady(true);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED：token 是新鲜的，可以安全 fetch profile
         setUser(session?.user ?? null);
         if (session?.user) await fetchProfile(session.user.id, session.user);
         else { setProfile(null); setLoading(false); }

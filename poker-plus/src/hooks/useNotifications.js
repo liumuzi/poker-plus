@@ -45,7 +45,7 @@ const MOCK_NOTIFICATIONS = [
  * 通知列表
  */
 export function useNotifications() {
-  const { user } = useAuth();
+  const { user, tokenReady } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [unreadCount, setUnreadCount]     = useState(0);
@@ -96,7 +96,8 @@ export function useNotifications() {
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  // 等 token 验证完毕再发请求，避免用过期 token 导致 JWT 错误
+  useEffect(() => { if (tokenReady) load(); }, [load, tokenReady]);
 
   // Real-time: listen for new notifications
   useEffect(() => {
