@@ -31,20 +31,28 @@ export function usePosts(typeFilter = 'all') {
       return;
     }
 
-    try {
+    const fetchPosts = async () => {
       let query = supabase
         .from('posts')
         .select('*, profile:profiles(nickname, avatar_url)')
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
-
       if (typeFilter !== 'all') query = query.eq('type', typeFilter);
+      return query;
+    };
 
-      const { data, error: queryError } = await query;
+    try {
+      let { data, error: queryError } = await fetchPosts();
+      // Auto-retry once on network/timeout error
+      if (queryError || data === null) {
+        if (!queryError) {
+          await new Promise(r => setTimeout(r, 2000));
+          ({ data, error: queryError } = await fetchPosts());
+        }
+      }
       if (queryError) {
         console.warn('[usePosts] load error:', queryError.message);
         setError(queryError.message || '加载失败');
-        // Keep existing posts rather than clearing to empty on transient errors
       } else {
         const list = data || [];
         setPosts(list);
@@ -52,9 +60,23 @@ export function usePosts(typeFilter = 'all') {
         if (list.length > 0) setCursor(list[list.length - 1].created_at);
       }
     } catch (err) {
-      console.error('[usePosts] unexpected error:', err);
-      setError('网络错误，请重试');
-      // Keep existing posts rather than clearing
+      console.error('[usePosts] unexpected error (attempt 1):', err);
+      // Auto-retry once after 2s
+      try {
+        await new Promise(r => setTimeout(r, 2000));
+        const { data, error: queryError } = await fetchPosts();
+        if (queryError) {
+          setError(queryError.message || '加载失败');
+        } else {
+          const list = data || [];
+          setPosts(list);
+          setHasMore(list.length === PAGE_SIZE);
+          if (list.length > 0) setCursor(list[list.length - 1].created_at);
+        }
+      } catch (retryErr) {
+        console.error('[usePosts] unexpected error (attempt 2):', retryErr);
+        setError('网络错误，请重试');
+      }
     } finally {
       setLoading(false);
     }

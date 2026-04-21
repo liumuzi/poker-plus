@@ -83,51 +83,58 @@ export function AuthProvider({ children }) {
    * @param {number} retries - 重试次数（等待 Trigger 完成）
    */
   const fetchProfile = async (userId, userData = null, retries = 3) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    // 如果查询失败但不是 "not found"，直接设置 profile 为 null
-    if (error && error.code !== 'PGRST116') {
-      console.warn('[AuthContext] fetchProfile error:', error.message);
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-
-    if (!data && retries > 0) {
-      // Trigger 可能还没执行完，等待后重试
-      await new Promise(r => setTimeout(r, 500));
-      return fetchProfile(userId, userData, retries - 1);
-    }
-
-    if (!data) {
-      // 重试后仍无数据，说明是 Google OAuth 首次登录，需手动创建 profile
-      const meta = userData?.user_metadata || {};
-      const nickname = meta.full_name || meta.name || userData?.email?.split('@')[0] || 'User';
-      const avatar_url = meta.avatar_url || meta.picture || null;
-      const { data: created, error: insertError } = await supabase
+    try {
+      const { data, error } = await supabase
         .from('profiles')
-        .insert({ id: userId, nickname, avatar_url, bio: '', post_count: 0 })
-        .select()
+        .select('*')
+        .eq('id', userId)
         .single();
-      if (insertError) {
-        console.warn('[AuthContext] profile insert error:', insertError.message);
-        // 可能是 UNIQUE 冲突（Trigger 刚创建完），再查一次
-        const { data: retry, error: retryError } = await supabase.from('profiles').select('*').eq('id', userId).single();
-        if (retryError) {
-          console.warn('[AuthContext] profile retry fetch error:', retryError.message);
-        }
-        setProfile(retry || null);
-      } else {
-        setProfile(created);
+
+      // 如果查询失败但不是 "not found"，直接设置 profile 为 null
+      if (error && error.code !== 'PGRST116') {
+        console.warn('[AuthContext] fetchProfile error:', error.message);
+        setProfile(null);
+        setLoading(false);
+        return;
       }
-    } else {
-      setProfile(data);
+
+      if (!data && retries > 0) {
+        // Trigger 可能还没执行完，等待后重试
+        await new Promise(r => setTimeout(r, 500));
+        return fetchProfile(userId, userData, retries - 1);
+      }
+
+      if (!data) {
+        // 重试后仍无数据，说明是 Google OAuth 首次登录，需手动创建 profile
+        const meta = userData?.user_metadata || {};
+        const nickname = meta.full_name || meta.name || userData?.email?.split('@')[0] || 'User';
+        const avatar_url = meta.avatar_url || meta.picture || null;
+        const { data: created, error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId, nickname, avatar_url, bio: '', post_count: 0 })
+          .select()
+          .single();
+        if (insertError) {
+          console.warn('[AuthContext] profile insert error:', insertError.message);
+          // 可能是 UNIQUE 冲突（Trigger 刚创建完），再查一次
+          const { data: retry, error: retryError } = await supabase.from('profiles').select('*').eq('id', userId).single();
+          if (retryError) {
+            console.warn('[AuthContext] profile retry fetch error:', retryError.message);
+          }
+          setProfile(retry || null);
+        } else {
+          setProfile(created);
+        }
+      } else {
+        setProfile(data);
+      }
+    } catch (err) {
+      // 网络超时或其他异常：profile 设为 null，但保留 user（已通过 auth）
+      console.warn('[AuthContext] fetchProfile threw:', err.message);
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // ── Auth 方法 ─────────────────────────────────────────────
